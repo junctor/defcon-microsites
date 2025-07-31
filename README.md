@@ -52,3 +52,22 @@ These are single-page apps statically built with Vite. Each lives at its own pat
 
 - [`/tv/`](./tv/index.html) – TV screen for auto-scrolling upcoming events
 - [`/merch/`](./merch/index.html) – Real-time DEF CON merch availability
+
+## 🚀 Deploying to GitHub Pages
+
+This project is deployed using [GitHub Actions](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml).
+
+To deploy the latest version of the microsites:
+
+1. Go to the **[Actions tab › Pages workflow](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml)**
+2. Click **“Run workflow”** in the top right
+3. Choose the branch (usually `main`) and click **Run workflow**
+
+This will:
+
+- Install dependencies
+- Build the microsites with Vite
+- Upload the `dist/` folder
+- Deploy it to [GitHub Pages](https://junctor.github.io/defcon-microsites/)
+
+> ℹ️ Note: Automatic deploys on `push` to `main` can be enabled by uncommenting the `on.push` block in `.github/workflows/pages.yml`.
