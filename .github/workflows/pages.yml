@@ -1,5 +1,5 @@
 # https://vite.dev/guide/static-deploy.html
-name: Deploy static content to Pages
+name: Deploy Microsites
 
 on:
   # Runs on pushes targeting the default branch
