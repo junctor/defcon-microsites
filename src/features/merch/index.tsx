@@ -17,7 +17,7 @@ function MerchPage() {
   useEffect(() => {
     document.title = "DC33 Merch";
 
-    const merchRef = collection(db, "conferences", "DEFCON32", "products");
+    const merchRef = collection(db, "conferences", "DEFCON33", "products");
 
     const unsubscribe = onSnapshot(
       merchRef,
