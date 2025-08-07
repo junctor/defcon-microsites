@@ -15,24 +15,21 @@ export default function Merch({ products }: { products: FBProducts }) {
   if (!products.documents) return <Error msg="Merch is closed" />;
 
   const { multiSizeProducts, oneSizeProducts, sizes } = useMemo(() => {
-    // Sort and filter out sold-out items
     const docs = [...products.documents]
       .sort((a, b) => a.fields.sort_order - b.fields.sort_order)
       .filter((p) => p.fields.variants.some((v) => v.stock_status !== "OUT"));
 
-    // Partition products
     const multi = docs.filter((p) =>
-      p.fields.variants.some((v) => v.title !== "OSFA")
+      p.fields.variants.some((v) => v.code !== "OSFA")
     );
     const one = docs.filter((p) =>
-      p.fields.variants.some((v) => v.title === "OSFA")
+      p.fields.variants.some((v) => v.code === "OSFA")
     );
 
-    // Collect and sort size labels
     const sizeMap = new Map<string, number>();
     multi.forEach((p) =>
       p.fields.variants.forEach((v) => {
-        if (v.title !== "OSFA") sizeMap.set(v.title, v.sort_order);
+        if (v.title !== "OSFA") sizeMap.set(v.code, v.sort_order);
       })
     );
     const sz = Array.from(sizeMap.entries())
@@ -43,14 +40,14 @@ export default function Merch({ products }: { products: FBProducts }) {
   }, [products.documents]);
 
   const renderStatus = (status: string, label: string) => {
-    const colorClass =
-      {
-        IN: "text-green-500",
-        LOW: "text-yellow-300",
-        OUT: "text-red-500",
-      }[status] ?? "text-purple-500";
-
-    return <span className={colorClass}>{label}</span>;
+    if (status === "OUT") {
+      return <span className="text-red-500 italic font-bold">X</span>;
+    } else if (status === "IN") {
+      return <span className="text-green-500">{label}</span>;
+    } else if (status === "LOW") {
+      return <span className="text-yellow-300">{label}</span>;
+    }
+    return <span className="text-purple-500">{label}</span>;
   };
 
   return (
@@ -58,13 +55,26 @@ export default function Merch({ products }: { products: FBProducts }) {
       <div className="flex space-x-2">
         {/* Multi-size table */}
         <div className="w-3/4 bg-gray-900 rounded-lg">
-          <Table className="table-auto w-full">
-            <TableCaption>DEF CON 33 Merch</TableCaption>
+          <Table className="table-fixed w-full">
+            <TableCaption className="caption-bottom">
+              DEF CON 33 Merch
+            </TableCaption>
+            <colgroup>
+              <col className="w-2/6" />
+              {sizes.map(() => (
+                <col className="w-1/6" />
+              ))}
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="bg-white text-black py-1">Name</TableHead>
+                <TableHead className="bg-white text-black py-1 text-left">
+                  Name
+                </TableHead>
                 {sizes.map((sz) => (
-                  <TableHead key={sz} className="bg-white text-black py-1">
+                  <TableHead
+                    key={sz}
+                    className="bg-white text-black py-1 text-center"
+                  >
                     {sz}
                   </TableHead>
                 ))}
@@ -73,16 +83,14 @@ export default function Merch({ products }: { products: FBProducts }) {
             <TableBody>
               {multiSizeProducts.map((p) => (
                 <TableRow key={p.fields.id} className="even:bg-muted/50">
-                  <TableHead className="font-bold text-white py-1">
+                  <TableCell className="font-bold text-white py-1 text-left">
                     {p.fields.title}
-                  </TableHead>
+                  </TableCell>
                   {sizes.map((sz) => {
-                    const variant = p.fields.variants.find(
-                      (v) => v.title === sz
-                    );
+                    const v = p.fields.variants.find((v) => v.code === sz);
                     return (
                       <TableCell key={sz} className="text-center py-1">
-                        {renderStatus(variant?.stock_status ?? "OUT", sz)}
+                        {renderStatus(v?.stock_status ?? "OUT", sz)}
                       </TableCell>
                     );
                   })}
@@ -94,25 +102,31 @@ export default function Merch({ products }: { products: FBProducts }) {
 
         {/* One-size table */}
         <div className="w-1/4 bg-gray-900 rounded-lg">
-          <Table className="table-auto w-full">
+          <Table className="table-fixed w-full">
+            <colgroup>
+              <col className="w-2/6" />
+              <col className="w-1/6" />
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="bg-white text-black py-1">Name</TableHead>
-                <TableHead className="bg-white text-black py-1">OS</TableHead>
+                <TableHead className="bg-white text-black py-1 text-left">
+                  Name
+                </TableHead>
+                <TableHead className="bg-white text-black py-1 text-center">
+                  OS
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {oneSizeProducts.map((p) => {
-                const variant = p.fields.variants.find(
-                  (v) => v.code === "OSFA"
-                );
+                const v = p.fields.variants.find((v) => v.code === "OSFA");
                 return (
                   <TableRow key={p.fields.id} className="even:bg-muted/50">
-                    <TableHead className="font-bold text-white py-1">
+                    <TableCell className="font-bold text-white py-1 text-left">
                       {p.fields.title}
-                    </TableHead>
+                    </TableCell>
                     <TableCell className="text-center py-1">
-                      {renderStatus(variant?.stock_status ?? "OUT", "OS")}
+                      {renderStatus(v?.stock_status ?? "OUT", "OS")}
                     </TableCell>
                   </TableRow>
                 );
