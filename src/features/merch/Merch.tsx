@@ -104,7 +104,7 @@ export default function Merch({ products }: { products: FBProducts }) {
             <TableBody>
               {oneSizeProducts.map((p) => {
                 const variant = p.fields.variants.find(
-                  (v) => v.title === "One-Size"
+                  (v) => v.code === "OSFA"
                 );
                 return (
                   <TableRow key={p.fields.id} className="even:bg-muted/50">
