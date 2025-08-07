@@ -41,7 +41,7 @@ export default function Merch({ products }: { products: FBProducts }) {
 
   const renderStatus = (status: string, label: string) => {
     if (status === "OUT") {
-      return <span className="text-red-500 italic font-bold">X</span>;
+      return <span className="text-red-500 italic font-bold">-</span>;
     } else if (status === "IN") {
       return <span className="text-green-500">{label}</span>;
     } else if (status === "LOW") {
