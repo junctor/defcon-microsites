@@ -54,15 +54,15 @@ export default function Merch({ products }: { products: FBProducts }) {
     <div className="p-6 bg-black text-white space-y-4">
       <div className="flex space-x-2">
         {/* Multi-size table */}
-        <div className="w-3/4 bg-gray-900 rounded-lg">
+        <div className="flex-1 bg-gray-900 rounded-lg overflow-x-auto">
           <Table className="table-fixed w-full">
             <TableCaption className="caption-bottom">
               DEF CON 33 Merch
             </TableCaption>
             <colgroup>
-              <col className="w-2/6" />
-              {sizes.map(() => (
-                <col className="w-1/6" />
+              <col className="min-w-[150px] w-[250px]" />
+              {sizes.map((sz) => (
+                <col key={sz} className="w-[30px]" />
               ))}
             </colgroup>
             <TableHeader>
@@ -83,7 +83,7 @@ export default function Merch({ products }: { products: FBProducts }) {
             <TableBody>
               {multiSizeProducts.map((p) => (
                 <TableRow key={p.fields.id} className="even:bg-muted/50">
-                  <TableCell className="font-bold text-white py-1 text-left">
+                  <TableCell className="font-bold text-white py-1 text-left break-words whitespace-normal">
                     {p.fields.title}
                   </TableCell>
                   {sizes.map((sz) => {
@@ -99,13 +99,12 @@ export default function Merch({ products }: { products: FBProducts }) {
             </TableBody>
           </Table>
         </div>
-
         {/* One-size table */}
-        <div className="w-1/4 bg-gray-900 rounded-lg">
+        <div className="flex-none w-1/4 bg-gray-900 rounded-lg overflow-x-auto">
           <Table className="table-fixed w-full">
             <colgroup>
-              <col className="w-2/6" />
-              <col className="w-1/6" />
+              <col className="min-w-[150px] w-auto" />
+              <col className="w-[35px]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -122,7 +121,7 @@ export default function Merch({ products }: { products: FBProducts }) {
                 const v = p.fields.variants.find((v) => v.code === "OSFA");
                 return (
                   <TableRow key={p.fields.id} className="even:bg-muted/50">
-                    <TableCell className="font-bold text-white py-1 text-left">
+                    <TableCell className="font-bold text-white py-1 text-left break-words whitespace-normal">
                       {p.fields.title}
                     </TableCell>
                     <TableCell className="text-center py-1">
