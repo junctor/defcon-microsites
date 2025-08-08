@@ -97,17 +97,19 @@ export default function TV({ schedule }: Props) {
   /* Render                                                             */
   /* ------------------------------------------------------------------ */
   return (
-    <div className="flex justify-end mb-2 mr-14 ml-5">
-      {/* --- main column ------------------------------------------------ */}
-      <div className="flex-initial w-full mr-2">
+    <div>
+      <header className="sticky top-0 z-10 bg-black rounded-b-3xl overflow-hidden shadow-lg">
+        <TVClock />
+      </header>
+
+      <main className="pt-4">
         {Array.from(filtered.entries()).map(([day, events]) => (
-          <div key={day} className="date-events mb-6">
+          <section key={day} className="date-events mb-6">
             <div className="border-4 border-[#6CE] rounded-b-lg">
               <p className="text-[#E67] text-4xl p-2 ml-1 font-extrabold">
                 {tabDateTitle(day)}
               </p>
             </div>
-
             {events
               .sort(
                 (a, b) =>
@@ -115,24 +117,13 @@ export default function TV({ schedule }: Props) {
                   (b.begin_timestamp?.seconds ?? 0)
               )
               .map((ev) => (
-                <div className="event" key={ev.id} aria-hidden="true">
+                <div key={ev.id} className="event" aria-hidden="true">
                   <TVEventCell event={ev} />
                 </div>
               ))}
-          </div>
+          </section>
         ))}
-      </div>
-
-      {/* --- sidebar ---------------------------------------------------- */}
-      <div className="flex-initial ml-5 mt-4">
-        <div className="sticky top-36 z-100">
-          <p className="text-center text-9xl mb-10 font-bold text-[#6CE]">
-            NFO Node
-          </p>
-          <p className="text-xl font-bold">Current&nbsp;time:</p>
-          <TVClock />
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
