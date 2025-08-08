@@ -91,3 +91,8 @@ export function formatSessionTime(begin: Date, end: Date): string {
 
   return `${eventTime(begin, false)} – ${eventTime(end, true)}`;
 }
+
+export function nowInLA() {
+  const laString = new Date().toLocaleString("sv", { timeZone: TZ });
+  return new Date(laString).getTime();
+}
