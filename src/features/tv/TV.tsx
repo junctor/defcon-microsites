@@ -55,7 +55,7 @@ export default function TV({ schedule }: Props) {
           : 0;
         const inWindow = debug || (startMs >= nowMs && startMs <= cutoffMs);
 
-        const matchesTag = tagId ? ev.tag_ids?.includes(tagId) : true;
+        const matchesTag = tagId === null ? true : ev.tag_ids?.includes(tagId);
         const matchesLoc = locationQ
           ? ev.location?.name?.toLowerCase().includes(locationQ)
           : true;
