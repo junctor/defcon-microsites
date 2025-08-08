@@ -1,5 +1,5 @@
-const LOCALE = "en-US";
-const TZ = "America/Los_Angeles";
+export const LOCALE = "en-US";
+export const TZ = "America/Los_Angeles";
 
 export function eventTimeTable(value: string | Date, showTz = true): string {
   const date = typeof value === "string" ? new Date(value) : value;
@@ -94,5 +94,11 @@ export function formatSessionTime(begin: Date, end: Date): string {
 
 export function nowInLA() {
   const laString = new Date().toLocaleString("sv", { timeZone: TZ });
+  return new Date(laString).getTime();
+}
+
+export function midnightLA(day: string) {
+  const iso = `${day}T00:00:00`;
+  const laString = new Date(iso).toLocaleString("sv", { timeZone: TZ });
   return new Date(laString).getTime();
 }

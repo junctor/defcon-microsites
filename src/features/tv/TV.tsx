@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import TVEventCell from "./TVEventCell";
 import TVClock from "./TVClock";
-import { nowInLA, tabDateTitle } from "../../lib/dates";
+import { midnightLA, TZ, tabDateTitle } from "../../lib/dates";
 import type { DefconSchedule, DefconEvent } from "../../types/ht";
 
 interface Props {
@@ -10,8 +10,10 @@ interface Props {
 
 function groupByDate(events: DefconSchedule): Record<string, DefconEvent[]> {
   return events.reduce<Record<string, DefconEvent[]>>((acc, ev) => {
-    const day = ev.begin.slice(0, 10);
-    (acc[day] ||= []).push(ev);
+    const dayKey = new Date(ev.begin).toLocaleDateString("en-CA", {
+      timeZone: TZ,
+    });
+    (acc[dayKey] ||= []).push(ev);
     return acc;
   }, {});
 }
@@ -25,47 +27,58 @@ export default function TV({ schedule }: Props) {
 
   const tagId = tagParam ? Number(tagParam) : null;
   const locationQ = lParam.toLowerCase();
-  const windowMs = Number(hParam ?? 6) * 3_600_000; // default 6h
-
-  const [nowMs, setNowMs] = useState(() => nowInLA());
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(nowInLA()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  const cutoffMs = nowMs + windowMs;
+  const windowMs = Number(hParam ?? 6) * 3_600_000; // default six hours
 
   const grouped = useMemo(() => groupByDate(schedule), [schedule]);
   const [filtered, setFiltered] = useState<Map<string, DefconEvent[]>>(
     new Map()
   );
 
+  // Re-run filtering as time moves forward (every 30s)
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setNowTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const out = new Map<string, DefconEvent[]>();
 
-    Object.entries(grouped).forEach(([day, events]) => {
-      const upcoming = events.filter((ev) => {
-        const startMs = (ev.begin_timestamp?.seconds ?? 0) * 1000;
-        const inWindow = debug || (startMs >= nowMs && startMs <= cutoffMs);
+    // ✅ Use true UTC "now" for comparisons
+    const nowMs = Date.now();
+    const cutoffMs = nowMs + windowMs;
 
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+    const todayMidLA = midnightLA(todayKey);
+
+    Object.entries(grouped).forEach(([dayKey, events]) => {
+      const dayMs = midnightLA(dayKey);
+      if (!debug && dayMs < todayMidLA) return;
+
+      const upcoming = events.filter((ev) => {
         const matchesTag = tagId == null || ev.tag_ids?.includes(tagId);
         const matchesLoc =
           !locationQ || ev.location?.name?.toLowerCase().includes(locationQ);
 
+        if (debug) return matchesTag && matchesLoc;
+
+        const startMs = (ev.begin_timestamp?.seconds ?? 0) * 1000;
+        const inWindow = startMs >= nowMs && startMs <= cutoffMs;
         return inWindow && matchesTag && matchesLoc;
       });
 
-      if (upcoming.length) out.set(day, upcoming);
+      if (upcoming.length) out.set(dayKey, upcoming);
     });
 
     setFiltered(out);
-  }, [grouped, locationQ, tagId, windowMs, debug, nowMs]); // ✅ depend on nowMs
+  }, [grouped, locationQ, tagId, windowMs, debug, nowTick]);
 
   useEffect(() => {
     let raf = 0;
     const step = () => {
-      const { scrollTop, scrollHeight, clientHeight } =
-        document.documentElement;
-      const atBottom = scrollTop + clientHeight >= scrollHeight - 2; // epsilon
+      const doc = document.documentElement;
+      const atBottom =
+        Math.ceil(window.scrollY + window.innerHeight) >= doc.scrollHeight - 2;
       if (atBottom) {
         window.scrollTo({ top: 0, behavior: "auto" });
       } else {
@@ -104,13 +117,6 @@ export default function TV({ schedule }: Props) {
               ))}
           </section>
         ))}
-
-        {/* Nice to have: empty state */}
-        {filtered.size === 0 && (
-          <p className="text-center text-neutral-400 py-8">
-            No events in the next {windowMs / 3_600_000} hours.
-          </p>
-        )}
       </main>
     </div>
   );
