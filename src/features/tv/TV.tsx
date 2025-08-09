@@ -102,7 +102,8 @@ export default function TV({ schedule }: Props) {
         <div
           className="bg-center bg-contain bg-no-repeat scale-50 translate-y-48"
           style={{
-            backgroundImage: "url('/images/skull_600x600.png')",
+            backgroundImage:
+              "url('/defcon-microsites/images/skull_600x600.png')",
             width: "100%",
             height: "100%",
           }}
