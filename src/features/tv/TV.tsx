@@ -24,6 +24,7 @@ export default function TV({ schedule }: Props) {
   const tagParam = params.get("tag");
   const hParam = params.get("h");
   const debug = params.get("debug") === "true";
+  const larger = params.get("larger") === "true";
 
   const tagId = tagParam ? Number(tagParam) : null;
   const locationQ = lParam.toLowerCase();
@@ -140,7 +141,7 @@ export default function TV({ schedule }: Props) {
               )
               .map((ev) => (
                 <div key={ev.id} className="event" aria-hidden="true">
-                  <TVEventCell event={ev} />
+                  <TVEventCell event={ev} larger={larger} />
                 </div>
               ))}
           </section>
