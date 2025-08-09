@@ -29,7 +29,7 @@ export default function TVClock() {
         flex items-center justify-center
         space-x-8 sm:space-x-16
         py-6 sm:py-8 px-4 sm:px-8 md:px-16
-        bg-black rounded-b-3xl overflow-hidden shadow-xl
+        bg-black rounded-b-4xl overflow-hidden shadow-xl  border-b-4 border-[#6ce]
       "
     >
       {/* Title */}
@@ -45,7 +45,7 @@ export default function TVClock() {
         NFO Node
       </h1>
 
-      {/* Divider (decorative) */}
+      {/* Divider */}
       <div
         aria-hidden="true"
         className="

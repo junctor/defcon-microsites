@@ -73,6 +73,7 @@ export default function TV({ schedule }: Props) {
     setFiltered(out);
   }, [grouped, locationQ, tagId, windowMs, debug, nowTick]);
 
+  // Auto-scroll loop
   useEffect(() => {
     let raf = 0;
     const step = () => {
@@ -91,12 +92,39 @@ export default function TV({ schedule }: Props) {
   }, []);
 
   return (
-    <div>
-      <header className="sticky top-0 z-10 bg-black rounded-b-3xl overflow-hidden shadow-lg">
+    <div className="relative min-h-screen text-white">
+      <div
+        aria-hidden
+        className="fixed inset-0 -z-10 flex items-center justify-center"
+      >
+        {/* Background image */}
+        <div
+          className="bg-center bg-contain bg-no-repeat scale-50 translate-y-48"
+          style={{
+            backgroundImage: "url('/images/skull_600x600.png')",
+            width: "100%",
+            height: "100%",
+          }}
+        />
+        <div className="absolute inset-0 bg-black/95" />
+        <div className="absolute inset-0 [background:radial-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] [background-size:3px_3px] mix-blend-overlay opacity-10" />
+      </div>
+
+      <div aria-hidden className="fixed inset-0 -z-10 pointer-events-none">
+        {/* Slash gradient */}
+        <div
+          className="absolute left-1/2 top-[-10vh] h-[140vh] w-[130vw] -translate-x-1/2 -rotate-6
+               bg-gradient-to-r from-cyan-400/30 via-fuchsia-400/30 to-amber-300/30"
+        />
+        <div className="absolute inset-0 bg-black/70" />
+      </div>
+
+      {/* Header stays sticky over the background */}
+      <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-sm rounded-b-3xl overflow-hidden shadow-lg">
         <TVClock />
       </header>
 
-      <main className="pt-4">
+      <main className="relative pt-4">
         {Array.from(filtered.entries()).map(([day, events]) => (
           <section key={day} className="date-events mb-6">
             <div className="border-4 border-[#6CE] rounded-b-lg">
