@@ -45,7 +45,6 @@ export default function TV({ schedule }: Props) {
   useEffect(() => {
     const out = new Map<string, DefconEvent[]>();
 
-    // ✅ Use true UTC "now" for comparisons
     const nowMs = Date.now();
     const cutoffMs = nowMs + windowMs;
 
@@ -74,55 +73,62 @@ export default function TV({ schedule }: Props) {
     setFiltered(out);
   }, [grouped, locationQ, tagId, windowMs, debug, nowTick]);
 
-  // Auto-scroll loop
+  // PERF: time-based auto-scroll (smooth at 30/60/120 Hz) + minimal layout reads
   useEffect(() => {
     let raf = 0;
-    const step = () => {
-      const doc = document.documentElement;
-      const atBottom =
-        Math.ceil(window.scrollY + window.innerHeight) >= doc.scrollHeight - 2;
-      if (atBottom) {
+    let last = performance.now();
+
+    const doc = document.scrollingElement || document.documentElement;
+    // Tune: ~140 px/s works well on 30 Hz TVs. Allow override via ?speed=#
+    const speedParam = Number(
+      new URLSearchParams(window.location.search).get("speed")
+    );
+    const pxPerSec =
+      Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 140;
+
+    let viewportH = window.innerHeight;
+    let scrollH = doc!.scrollHeight;
+    let lastDimsCheck = 0;
+
+    const onResize = () => {
+      viewportH = window.innerHeight;
+      scrollH = doc!.scrollHeight;
+    };
+    window.addEventListener("resize", onResize, { passive: true });
+
+    const atBottom = () =>
+      Math.ceil((doc!.scrollTop || window.scrollY) + viewportH) >= scrollH - 2;
+
+    const step = (now: number) => {
+      const dt = now - last;
+      last = now;
+
+      // Refresh heights ~4×/sec to avoid layout every frame
+      if (now - lastDimsCheck > 250) {
+        scrollH = doc!.scrollHeight;
+        lastDimsCheck = now;
+      }
+
+      if (atBottom()) {
         window.scrollTo({ top: 0, behavior: "auto" });
       } else {
-        window.scrollBy({ top: 1, left: 0 });
+        const dy = (pxPerSec * dt) / 1000;
+        window.scrollBy({ top: dy, left: 0, behavior: "auto" });
       }
+
       raf = requestAnimationFrame(step);
     };
+
     raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   return (
-    <div className="relative min-h-screen text-white">
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 flex items-center justify-center"
-      >
-        {/* Background image */}
-        <div
-          className="bg-center bg-contain bg-no-repeat scale-50 translate-y-48"
-          style={{
-            backgroundImage:
-              "url('/defcon-microsites/images/skull_600x600.png')",
-            width: "100%",
-            height: "100%",
-          }}
-        />
-        <div className="absolute inset-0 bg-black/95" />
-        <div className="absolute inset-0 [background:radial-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] [background-size:3px_3px] mix-blend-overlay opacity-10" />
-      </div>
-
-      <div aria-hidden className="fixed inset-0 -z-10 pointer-events-none">
-        {/* Slash gradient */}
-        <div
-          className="absolute left-1/2 top-[-10vh] h-[140vh] w-[130vw] -translate-x-1/2 -rotate-6
-               bg-gradient-to-r from-cyan-400/30 via-fuchsia-400/30 to-amber-300/30"
-        />
-        <div className="absolute inset-0 bg-black/70" />
-      </div>
-
-      {/* Header stays sticky over the background */}
-      <header className="sticky top-0 z-10 bg-black/80 backdrop-blur-sm rounded-b-3xl overflow-hidden shadow-lg">
+    <div className="relative min-h-screen text-white bg-black">
+      <header className="sticky top-0 z-10 bg-black rounded-b-3xl overflow-hidden">
         <TVClock />
       </header>
 

@@ -24,79 +24,50 @@ export default function TVClock() {
 
   return (
     <header
-      aria-label="Current time in America/Los Angeles"
+      aria-label="Current time in America/Los_Angeles"
       className="
         flex items-center justify-center
-        space-x-8 sm:space-x-16
-        py-6 sm:py-8 px-4 sm:px-8 md:px-16
-        bg-black rounded-b-4xl overflow-hidden shadow-xl  border-b-4 border-[#6ce]
+        gap-6 sm:gap-10
+        py-4 sm:py-5 px-4 sm:px-8
+        bg-black border-b-2 border-[#6ce]
       "
     >
       {/* Title */}
       <h1
         className="
-          font-mono font-bold
-          text-5xl sm:text-7xl md:text-9xl
-          uppercase tracking-wider
+          font-mono font-bold uppercase tracking-wide
+          text-3xl sm:text-5xl md:text-6xl
           text-[#6ce]
-          [text-shadow:2px_0_#e67,-2px_0_#47a,0_2px_#cb4,0_-2px_#fff]
         "
       >
         NFO Node
       </h1>
 
-      {/* Divider */}
+      {/* Static divider */}
       <div
         aria-hidden="true"
-        className="
-          flex-shrink-0
-          w-1 sm:w-2
-          h-16 sm:h-20
-          bg-[#6ce]/50
-          animate-pulse
-          rounded-2xl
-        "
+        className="w-px sm:w-1 h-10 sm:h-12 bg-[#6ce]/60"
       />
 
       {/* Clock */}
-      <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="flex items-center gap-2 sm:gap-3 font-mono font-bold tabular-nums">
         <time
-          dateTime={new Date().toISOString()}
-          className="
-            font-mono font-bold
-            text-5xl sm:text-7xl md:text-9xl
-            drop-shadow-lg
-            text-[#47a]
-            [text-shadow:2px_0_#e67,-2px_0_#47a,0_2px_#cb4,0_-2px_#fff]
-          "
+          aria-label="Hour"
+          className="text-4xl sm:text-6xl md:text-7xl text-[#47a]"
         >
           {hh}
         </time>
-        <span className="font-mono font-bold text-5xl sm:text-7xl md:text-9xl text-white drop-shadow-lg">
-          :
-        </span>
+        <span className="text-4xl sm:text-6xl md:text-7xl text-white">:</span>
         <time
-          className="
-            font-mono font-bold
-            text-5xl sm:text-7xl md:text-9xl
-            drop-shadow-lg
-            text-[#e67]
-            [text-shadow:2px_0_#e67,-2px_0_#47a,0_2px_#cb4,0_-2px_#fff]
-          "
+          aria-label="Minute"
+          className="text-4xl sm:text-6xl md:text-7xl text-[#e67]"
         >
           {mm}
         </time>
-        <span className="font-mono font-bold text-5xl sm:text-7xl md:text-9xl text-white drop-shadow-lg">
-          :
-        </span>
+        <span className="text-4xl sm:text-6xl md:text-7xl text-white">:</span>
         <time
-          className="
-            font-mono font-bold
-            text-5xl sm:text-7xl md:text-9xl
-            drop-shadow-lg
-            text-[#cb4]
-            [text-shadow:2px_0_#e67,-2px_0_#47a,0_2px_#cb4,0_-2px_#fff]
-          "
+          aria-label="Second"
+          className="text-4xl sm:text-6xl md:text-7xl text-[#cb4]"
         >
           {ss}
         </time>
