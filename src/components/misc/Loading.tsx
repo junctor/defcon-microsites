@@ -1,8 +1,11 @@
 function Loading() {
   return (
-    <main>
-      <div className="flex content-center h-screen">
-        <h1 className="animate-spin m-auto text-3xl block font-bold">HT</h1>
+    <main className="status-page" aria-live="polite">
+      <div className="status-card panel">
+        <div className="loading-mark" aria-hidden="true">
+          DC
+        </div>
+        <p className="status-message">Loading live data.</p>
       </div>
     </main>
   );

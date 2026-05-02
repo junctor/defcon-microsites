@@ -1,10 +1,11 @@
-import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { collection, onSnapshot } from "firebase/firestore";
 
 import Merch from "./Merch";
 import "@/index.css";
 import { db } from "@/lib/firebase";
+import { CONFERENCE_CODE, CONFERENCE_NAME } from "@/lib/conference";
 import Loading from "@/components/misc/Loading";
 import ErrorView from "@/components/misc/Error";
 import type { FBProduct, FBProducts } from "@/types/ht";
@@ -15,9 +16,9 @@ function MerchPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "DC33 Merch";
+    document.title = `${CONFERENCE_NAME} Merch`;
 
-    const merchRef = collection(db, "conferences", "DEFCON33", "products");
+    const merchRef = collection(db, "conferences", CONFERENCE_CODE, "products");
 
     const unsubscribe = onSnapshot(
       merchRef,
@@ -27,14 +28,14 @@ function MerchPage() {
           fields: doc.data() as FBProduct,
         }));
 
-        setData({ documents }); // ← keep them ALL
+        setData({ documents });
         setLoading(false);
       },
       (err) => {
         console.error(err);
         setErr(err);
         setLoading(false);
-      }
+      },
     );
 
     return unsubscribe; // cleanup
@@ -46,4 +47,4 @@ function MerchPage() {
   return <Merch products={data} />;
 }
 
-render(<MerchPage />, document.body);
+createRoot(document.getElementById("root")!).render(<MerchPage />);

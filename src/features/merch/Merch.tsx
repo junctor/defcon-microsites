@@ -1,14 +1,6 @@
-import { useMemo } from "preact/hooks";
+import { useMemo } from "react";
 import Error from "../../components/misc/Error";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table";
+import { CONFERENCE_NAME, CONFERENCE_THEME } from "@/lib/conference";
 import type { FBProducts } from "@/types/ht";
 
 export default function Merch({ products }: { products: FBProducts }) {
@@ -19,18 +11,14 @@ export default function Merch({ products }: { products: FBProducts }) {
       .sort((a, b) => a.fields.sort_order - b.fields.sort_order)
       .filter((p) => p.fields.variants.some((v) => v.stock_status !== "OUT"));
 
-    const multi = docs.filter((p) =>
-      p.fields.variants.some((v) => v.code !== "OSFA")
-    );
-    const one = docs.filter((p) =>
-      p.fields.variants.some((v) => v.code === "OSFA")
-    );
+    const multi = docs.filter((p) => p.fields.variants.some((v) => v.code !== "OSFA"));
+    const one = docs.filter((p) => p.fields.variants.some((v) => v.code === "OSFA"));
 
     const sizeMap = new Map<string, number>();
     multi.forEach((p) =>
       p.fields.variants.forEach((v) => {
         if (v.title !== "OSFA") sizeMap.set(v.code, v.sort_order);
-      })
+      }),
     );
     const sz = Array.from(sizeMap.entries())
       .sort(([, a], [, b]) => a - b)
@@ -41,99 +29,93 @@ export default function Merch({ products }: { products: FBProducts }) {
 
   const renderStatus = (status: string, label: string) => {
     if (status === "OUT") {
-      return <span className="text-red-500 italic font-bold">-</span>;
-    } else if (status === "IN") {
-      return <span className="text-green-500">{label}</span>;
-    } else if (status === "LOW") {
-      return <span className="text-yellow-300">{label}</span>;
+      return <span className="stock-status stock-status--out">-</span>;
     }
-    return <span className="text-purple-500">{label}</span>;
+    if (status === "IN") {
+      return <span className="stock-status stock-status--in">{label}</span>;
+    }
+    if (status === "LOW") {
+      return <span className="stock-status stock-status--low">{label}</span>;
+    }
+    return <span className="stock-status stock-status--unknown">{label}</span>;
   };
 
   return (
-    <div className="p-6 bg-black text-white space-y-4">
-      <div className="flex space-x-2">
-        {/* Multi-size table */}
-        <div className="flex-1 bg-gray-900 rounded-lg overflow-x-auto">
-          <Table className="table-fixed w-full">
-            <TableCaption className="caption-bottom">
-              DEF CON 33 Merch
-            </TableCaption>
-            <colgroup>
-              <col className="min-w-[150px] w-[250px]" />
-              {sizes.map((sz) => (
-                <col key={sz} className="w-[30px]" />
-              ))}
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="bg-white text-black py-1 text-left">
-                  Name
-                </TableHead>
+    <main className="app-shell">
+      <header className="page-header">
+        <p className="eyebrow">{CONFERENCE_THEME} inventory</p>
+        <h1 className="page-title">{CONFERENCE_NAME} Merch</h1>
+        <p className="page-summary">
+          Live availability for on-site merchandise. Stock changes are shown plainly so attendees
+          can make quick, informed choices.
+        </p>
+      </header>
+
+      <div className="merch-layout" aria-label="Merchandise availability">
+        <section className="panel merch-panel" aria-labelledby="sized-products">
+          <div className="table-scroll">
+            <table className="inventory-table">
+              <caption id="sized-products">Sized products</caption>
+              <colgroup>
+                <col className="w-[16rem]" />
                 {sizes.map((sz) => (
-                  <TableHead
-                    key={sz}
-                    className="bg-white text-black py-1 text-center"
-                  >
-                    {sz}
-                  </TableHead>
+                  <col key={sz} className="w-[3rem]" />
                 ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {multiSizeProducts.map((p) => (
-                <TableRow key={p.fields.id} className="even:bg-muted/50">
-                  <TableCell className="font-bold text-white py-1 text-left break-words whitespace-normal">
-                    {p.fields.title}
-                  </TableCell>
-                  {sizes.map((sz) => {
-                    const v = p.fields.variants.find((v) => v.code === sz);
-                    return (
-                      <TableCell key={sz} className="text-center py-1">
-                        {renderStatus(v?.stock_status ?? "OUT", sz)}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        {/* One-size table */}
-        <div className="flex-none w-1/4 bg-gray-900 rounded-lg overflow-x-auto">
-          <Table className="table-fixed w-full">
-            <colgroup>
-              <col className="min-w-[150px] w-auto" />
-              <col className="w-[35px]" />
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="bg-white text-black py-1 text-left">
-                  Name
-                </TableHead>
-                <TableHead className="bg-white text-black py-1 text-center">
-                  OS
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {oneSizeProducts.map((p) => {
-                const v = p.fields.variants.find((v) => v.code === "OSFA");
-                return (
-                  <TableRow key={p.fields.id} className="even:bg-muted/50">
-                    <TableCell className="font-bold text-white py-1 text-left break-words whitespace-normal">
-                      {p.fields.title}
-                    </TableCell>
-                    <TableCell className="text-center py-1">
-                      {renderStatus(v?.stock_status ?? "OUT", "OS")}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  {sizes.map((sz) => (
+                    <th key={sz} scope="col">
+                      {sz}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {multiSizeProducts.map((p) => (
+                  <tr key={p.fields.id}>
+                    <td className="product-name">{p.fields.title}</td>
+                    {sizes.map((sz) => {
+                      const v = p.fields.variants.find((v) => v.code === sz);
+                      return <td key={sz}>{renderStatus(v?.stock_status ?? "OUT", sz)}</td>;
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel merch-panel" aria-labelledby="one-size-products">
+          <div className="table-scroll">
+            <table className="inventory-table inventory-table--compact">
+              <caption id="one-size-products">One-size products</caption>
+              <colgroup>
+                <col />
+                <col className="w-[3.25rem]" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">OS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {oneSizeProducts.map((p) => {
+                  const v = p.fields.variants.find((v) => v.code === "OSFA");
+                  return (
+                    <tr key={p.fields.id}>
+                      <td className="product-name">{p.fields.title}</td>
+                      <td>{renderStatus(v?.stock_status ?? "OUT", "OS")}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

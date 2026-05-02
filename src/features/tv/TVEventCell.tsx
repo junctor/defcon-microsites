@@ -1,5 +1,4 @@
-import { memo } from "preact/compat";
-import { useMemo } from "preact/hooks";
+import { memo, useMemo, type CSSProperties } from "react";
 import { Clock, MapPin } from "lucide-react";
 import { eventTime, formatSessionTime } from "../../lib/dates";
 import type { DefconEvent } from "../../types/ht";
@@ -12,7 +11,7 @@ interface Props {
 function TVEventCellInner({ event, larger }: Props) {
   const speakerNames = useMemo(
     () => event.speakers?.map((s) => s.name).join(", "),
-    [event.speakers]
+    [event.speakers],
   );
 
   const timeLabel = useMemo(() => {
@@ -23,72 +22,46 @@ function TVEventCellInner({ event, larger }: Props) {
       : formatSessionTime(begin, end);
   }, [event.begin, event.end]);
 
-  // Helper to pick text size
-  const size = (base: string, up: string) => (larger ? up : base);
+  const eventStyle = {
+    "--event-color": event.type?.color,
+  } as CSSProperties;
 
   return (
-    <div
-      className="p-8 flex space-x-6"
-      style={{
-        contentVisibility: "auto",
-        containIntrinsicSize: "1px 320px",
-      }}
-    >
-      <div
-        className="w-4 rounded"
-        style={{ backgroundColor: event.type?.color || "#FFD700" }}
-      />
+    <article className="tv-event" style={eventStyle}>
+      <div className="tv-event__stripe" aria-hidden="true" />
 
-      {/* main content */}
-      <div className="flex-1 text-white">
-        {/* title */}
-        <h2
-          className={`${size(
-            "text-4xl",
-            "text-5xl"
-          )} font-semibold leading-snug break-words`}
-        >
+      <div className="tv-event__body">
+        <h2 className={larger ? "tv-event__title tv-event__title--large" : "tv-event__title"}>
           {event.title}
         </h2>
 
-        {/* speakers */}
         {speakerNames && (
-          <p className={`mt-2 ${size("text-2xl", "text-3xl")} text-gray-200`}>
+          <p
+            className={
+              larger ? "tv-event__speakers tv-event__speakers--large" : "tv-event__speakers"
+            }
+          >
             {speakerNames}
           </p>
         )}
 
-        {/* time + location */}
-        <div className="mt-4 flex flex-wrap items-center text-gray-400 space-x-8">
-          <div className="flex items-center space-x-2">
-            <Clock size={larger ? 28 : 24} aria-hidden />
-            <span className={size("text-xl", "text-2xl")}>{timeLabel}</span>
+        <div className="tv-event__meta">
+          <div className="tv-event__meta-item">
+            <Clock aria-hidden="true" size={larger ? 30 : 24} />
+            <span>{timeLabel}</span>
           </div>
 
           {event.location?.name && (
-            <div className="flex items-center space-x-2">
-              <MapPin size={larger ? 28 : 24} aria-hidden />
-              <span className={size("text-xl", "text-2xl")}>
-                {event.location.short_name}
-              </span>
+            <div className="tv-event__meta-item">
+              <MapPin aria-hidden="true" size={larger ? 30 : 24} />
+              <span>{event.location.short_name}</span>
             </div>
           )}
         </div>
 
-        {/* category badge */}
-        {event.type?.name && (
-          <span
-            className={`inline-block mt-4 px-3 py-2 ${size(
-              "text-lg",
-              "text-xl"
-            )} font-medium rounded-full`}
-            style={{ backgroundColor: event.type.color, color: "#fff" }}
-          >
-            {event.type.name}
-          </span>
-        )}
+        {event.type?.name && <span className="tv-event__type">{event.type.name}</span>}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -104,5 +77,5 @@ export default memo(
     prev.event.type?.name === next.event.type?.name &&
     // If you change speakers/time in-place, include the string check:
     (prev.event.speakers?.map((s) => s.name).join(", ") ?? "") ===
-      (next.event.speakers?.map((s) => s.name).join(", ") ?? "")
+      (next.event.speakers?.map((s) => s.name).join(", ") ?? ""),
 );

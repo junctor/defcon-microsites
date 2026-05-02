@@ -1,13 +1,11 @@
 export default function Error({ msg }: { msg?: string }) {
   return (
-    <main>
-      <div className="flex content-center h-screen justify-center items-center text-center">
-        <a href="/">
-          <div>
-            <h1 className="text-2xl md:text-4xl">Error</h1>
-            <h4 className="text-xs md:text-sm">{msg ?? ""}</h4>
-            <h3 className="text-base md:text-md">Return Home</h3>
-          </div>
+    <main className="status-page">
+      <div className="status-card panel" role="alert">
+        <h1 className="status-title">Unable to Load</h1>
+        <p className="status-message">{msg ?? "Live data is unavailable."}</p>
+        <a className="status-link" href={import.meta.env.BASE_URL}>
+          Return home
         </a>
       </div>
     </main>

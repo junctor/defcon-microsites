@@ -1,9 +1,10 @@
-import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { collection, onSnapshot } from "firebase/firestore";
 
 import "@/index.css";
 import { db } from "@/lib/firebase";
+import { CONFERENCE_CODE, CONFERENCE_NAME } from "@/lib/conference";
 import Loading from "@/components/misc/Loading";
 import ErrorView from "@/components/misc/Error";
 import TV from "./TV";
@@ -19,18 +20,16 @@ function TVPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "DC33 TV";
+    document.title = `${CONFERENCE_NAME} TV`;
 
-    const tvRef = collection(db, "conferences", "DEFCON33", "events");
+    const tvRef = collection(db, "conferences", CONFERENCE_CODE, "events");
 
     const unsubscribe = onSnapshot(
       tvRef,
       (snap) => {
-        /* Firestore → plain array of DefconEvent -------------------- */
         const events: DefconSchedule = snap.docs.map((doc) => {
           const data = doc.data() as DefconEvent;
 
-          // ensure "id" exists (Firestore doc IDs are strings)
           if (typeof data.id === "undefined") {
             const numericId = Number(doc.id);
             (data as DefconEvent).id = isNaN(numericId) ? -1 : numericId;
@@ -45,22 +44,16 @@ function TVPage() {
         console.error(err);
         setErr(err);
         setLoading(false);
-      }
+      },
     );
 
-    return unsubscribe; // cleanup on unmount
+    return unsubscribe;
   }, []);
 
-  /* ---------------------------------------------------------------- */
-  /* Render                                                            */
-  /* ---------------------------------------------------------------- */
   if (loading) return <Loading />;
   if (err || !schedule) return <ErrorView msg={err?.message ?? "No data"} />;
-
-  console.log("TV schedule loaded", schedule.length, "events");
-  console.log("TV schedule first event:", schedule[0]);
 
   return <TV schedule={schedule} />;
 }
 
-render(<TVPage />, document.body);
+createRoot(document.getElementById("root")!).render(<TVPage />);

@@ -1,73 +1,83 @@
 # DEF CON Microsites
 
-[![Deploy Microsites](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml/badge.svg)](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml)
+Standalone DEF CON microsites for conference displays and attendee-facing utility pages.
 
-This repo hosts standalone microsites designed to supplement the official DEF CON schedule at [info.defcon.org](https://info.defcon.org).
+The current stack is Vite+, React, TypeScript, and Tailwind CSS. Vite+ provides the local CLI used by the package scripts.
 
-These microsites are built with **Vite**, **Preact**, and **TypeScript**, and are optimized for fast display on conference screens or mobile devices. Each microsite is statically hosted and backed by live Firestore data.
-
----
-
-## Available Pages
-
-### `/tv/` – Live Event Display
-
-A fullscreen auto-scrolling view of upcoming DEF CON events. Intended for public displays or kiosks.
-
-#### URL Parameters
-
-You can control which events are shown by passing query parameters:
-
-| Param   | Type     | Example      | Description                                                                                 |
-| ------- | -------- | ------------ | ------------------------------------------------------------------------------------------- |
-| `l`     | `string` | `track 1`    | Filter events by location name (case-insensitive substring match).                          |
-| `tag`   | `number` | `47607`      | Show only events with the specified tag ID.                                                 |
-| `h`     | `number` | `6`          | Time window in hours (default is 6). Only events starting within this window will be shown. |
-| `debug` | `true`   | `debug=true` | Show past and future events. Useful for testing outside the event time range.               |
-
-#### Examples
-
-- `https://junctor.github.io/defcon-microsites/tv/?l=track%201&tag=47607`
-- `https://junctor.github.io/defcon-microsites/tv/?h=12&debug=true`
-
----
-
-### `/merch/` – Merchandise Availability
-
-Displays DEF CON merchandise and inventory status, powered by live Firestore updates. Intended for on-site TVs to let attendees know what’s in stock.
-
----
-
-## Development
+## Getting Started
 
 ```bash
 npm install
+npm run dev
 npm run build
 npm run preview
 ```
 
-## Microsites
+Useful checks:
 
-These are single-page apps statically built with Vite. Each lives at its own path:
+```bash
+npm run fmt
+npm run lint
+vp check
+vp test
+```
 
-- [`/tv/`](./tv/index.html) – TV screen for auto-scrolling upcoming events
-- [`/merch/`](./merch/index.html) – Real-time DEF CON merch availability
+## Pages
 
-## 🚀 Deploying to GitHub Pages
+- `/merch/`: live merchandise availability.
+- `/tv/`: live schedule display for screens.
 
-This project is deployed using [GitHub Actions](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml).
+Each page has its own HTML entry point and is included in `vite.config.ts`.
+The root entry serves the microsite directory at the configured GitHub Pages base path.
 
-To deploy the latest version of the microsites:
+## Project Structure
 
-1. Go to the **[Actions tab › Pages workflow](https://github.com/junctor/defcon-microsites/actions/workflows/pages.yml)**
-2. Click **“Run workflow”** in the top right
-3. Choose the branch (usually `main`) and click **Run workflow**
+- `src/`: TypeScript, React components, shared utilities, and global CSS.
+- `src/components/`: shared UI and status components.
+- `src/features/`: page-specific microsite code.
+- `src/lib/`: Firebase, dates, and conference constants.
+- `src/types/`: shared TypeScript types.
+- `src/index.css`: global design tokens, fonts, typography, focus styles, and reusable classes.
+- `public/`: static assets copied by Vite.
+- `public/fonts/`: approved local web fonts.
+- `public/images/`: static image assets.
+- `merch/` and `tv/`: standalone HTML entries.
 
-This will:
+## Design System
 
-- Install dependencies
-- Build the microsites with Vite
-- Upload the `dist/` folder
-- Deploy it to [GitHub Pages](https://junctor.github.io/defcon-microsites/)
+DEF CON 34 uses the Agency theme: clear, intentional, accessible, restrained, and human-first. UI should be readable and direct, with minimal animation and no effects that interfere with use.
 
-> ℹ️ Note: Automatic deploys on `push` to `main` can be enabled by uncommenting the `on.push` block in `.github/workflows/pages.yml`.
+Color rules:
+
+- Use CSS variables from `src/index.css`.
+- Do not use raw hex values in components.
+- Raw hex values belong only in token definitions or unavoidable metadata.
+- Avoid inline styles for colors.
+
+Typography:
+
+- Atkinson Hyperlegible is the default body and UI font.
+- Museo is for major headings, used sparingly.
+- Lato is for labels and metadata, used sparingly.
+
+## Development Guidelines
+
+- Prefer simple, readable components.
+- Avoid unnecessary abstractions and dependencies.
+- Keep bundle size small.
+- Preserve existing routes and microsite behavior.
+- Use visible focus states.
+- Maintain readable contrast.
+- Respect `prefers-reduced-motion`.
+- Keep animation minimal and purposeful.
+
+## Assets
+
+- Fonts go in `public/fonts/`.
+- Images go in `public/images/` unless a page has a specific reason to use another public path.
+
+## Notes
+
+- Vite builds the `merch/index.html` and `tv/index.html` entries configured in `vite.config.ts`.
+- The GitHub Pages base path is `/defcon-microsites/`.
+- Local dev uses the same base path, so `http://localhost:5173/` redirects to `/defcon-microsites/`.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "react";
 import TVEventCell from "./TVEventCell";
 import TVClock from "./TVClock";
 import { midnightLA, TZ, tabDateTitle } from "../../lib/dates";
@@ -31,9 +31,7 @@ export default function TV({ schedule }: Props) {
   const windowMs = Number(hParam ?? 6) * 3_600_000; // default six hours
 
   const grouped = useMemo(() => groupByDate(schedule), [schedule]);
-  const [filtered, setFiltered] = useState<Map<string, DefconEvent[]>>(
-    new Map()
-  );
+  const [filtered, setFiltered] = useState<Map<string, DefconEvent[]>>(new Map());
 
   // Re-run filtering as time moves forward (every 30s)
   const [nowTick, setNowTick] = useState(0);
@@ -57,8 +55,7 @@ export default function TV({ schedule }: Props) {
 
       const upcoming = events.filter((ev) => {
         const matchesTag = tagId == null || ev.tag_ids?.includes(tagId);
-        const matchesLoc =
-          !locationQ || ev.location?.name?.toLowerCase().includes(locationQ);
+        const matchesLoc = !locationQ || ev.location?.name?.toLowerCase().includes(locationQ);
 
         if (debug) return matchesTag && matchesLoc;
 
@@ -73,18 +70,16 @@ export default function TV({ schedule }: Props) {
     setFiltered(out);
   }, [grouped, locationQ, tagId, windowMs, debug, nowTick]);
 
-  // PERF: time-based auto-scroll (smooth at 30/60/120 Hz) + minimal layout reads
   useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
     let raf = 0;
     let last = performance.now();
 
     const doc = document.scrollingElement || document.documentElement;
-    // Tune: ~140 px/s works well on 30 Hz TVs. Allow override via ?speed=#
-    const speedParam = Number(
-      new URLSearchParams(window.location.search).get("speed")
-    );
-    const pxPerSec =
-      Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 140;
+    const speedParam = Number(new URLSearchParams(window.location.search).get("speed"));
+    const pxPerSec = Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 140;
 
     let viewportH = window.innerHeight;
     let scrollH = doc!.scrollHeight;
@@ -96,14 +91,12 @@ export default function TV({ schedule }: Props) {
     };
     window.addEventListener("resize", onResize, { passive: true });
 
-    const atBottom = () =>
-      Math.ceil((doc!.scrollTop || window.scrollY) + viewportH) >= scrollH - 2;
+    const atBottom = () => Math.ceil((doc!.scrollTop || window.scrollY) + viewportH) >= scrollH - 2;
 
     const step = (now: number) => {
       const dt = now - last;
       last = now;
 
-      // Refresh heights ~4×/sec to avoid layout every frame
       if (now - lastDimsCheck > 250) {
         scrollH = doc!.scrollHeight;
         lastDimsCheck = now;
@@ -127,29 +120,19 @@ export default function TV({ schedule }: Props) {
   }, []);
 
   return (
-    <div className="relative min-h-screen text-white bg-black">
-      <header className="sticky top-0 z-10 bg-black rounded-b-3xl overflow-hidden">
-        <TVClock />
-      </header>
+    <div className="tv-page">
+      <TVClock />
 
-      <main className="relative pt-4">
+      <main className="tv-content">
         {Array.from(filtered.entries()).map(([day, events]) => (
-          <section key={day} className="date-events mb-6">
-            <div className="border-4 border-[#6CE] rounded-b-lg">
-              <p className="text-[#E67] text-4xl p-2 ml-1 font-extrabold">
-                {tabDateTitle(day)}
-              </p>
+          <section key={day} className="tv-day">
+            <div className="tv-day__header">
+              <h1 className="tv-day__title">{tabDateTitle(day)}</h1>
             </div>
             {events
-              .sort(
-                (a, b) =>
-                  (a.begin_timestamp?.seconds ?? 0) -
-                  (b.begin_timestamp?.seconds ?? 0)
-              )
+              .sort((a, b) => (a.begin_timestamp?.seconds ?? 0) - (b.begin_timestamp?.seconds ?? 0))
               .map((ev) => (
-                <div key={ev.id} className="event" aria-hidden="true">
-                  <TVEventCell event={ev} larger={larger} />
-                </div>
+                <TVEventCell key={ev.id} event={ev} larger={larger} />
               ))}
           </section>
         ))}

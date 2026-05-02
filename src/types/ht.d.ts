@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------
-   DEF CON 33 – Schedule / Content model
+   DEF CON schedule / content model
    ------------------------------------------------------------------ */
 
 export interface FirestoreTimestamp {
@@ -76,7 +76,7 @@ export interface EventType {
   color: string; // Hex
   id: number;
   updated_tsz: string; // ISO-8601
-  conference: string; // "DEFCON33"
+  conference: string; // e.g. "DEFCON34"
 }
 
 export interface Link {
@@ -91,7 +91,7 @@ export interface DefconEvent {
   /* Core metadata */
   id: number;
   title: string;
-  conference: string; // "DEFCON33"
+  conference: string; // e.g. "DEFCON34"
   conference_id: number;
   timezone: string; // IANA zone (e.g. "America/Los_Angeles")
 
