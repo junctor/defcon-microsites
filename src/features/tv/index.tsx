@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { collection, onSnapshot } from "firebase/firestore";
 
 import "@/index.css";
 import { db } from "@/lib/firebase";
-import { CONFERENCE_CODE, CONFERENCE_NAME } from "@/lib/conference";
+import { parseConferenceConfig } from "@/lib/conference";
 import Loading from "@/components/misc/Loading";
 import ErrorView from "@/components/misc/Error";
 import TV from "./TV";
@@ -15,14 +15,15 @@ import type { DefconSchedule, DefconEvent } from "@/types/ht";
 /* TV page                                                             */
 /* ------------------------------------------------------------------ */
 function TVPage() {
+  const conference = useMemo(() => parseConferenceConfig(), []);
   const [schedule, setSchedule] = useState<DefconSchedule | null>(null);
   const [err, setErr] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = `${CONFERENCE_NAME} TV`;
+    document.title = `${conference.name} TV`;
 
-    const tvRef = collection(db, "conferences", CONFERENCE_CODE, "events");
+    const tvRef = collection(db, "conferences", conference.code, "events");
 
     const unsubscribe = onSnapshot(
       tvRef,
@@ -48,12 +49,12 @@ function TVPage() {
     );
 
     return unsubscribe;
-  }, []);
+  }, [conference.code, conference.name]);
 
   if (loading) return <Loading />;
   if (err || !schedule) return <ErrorView msg={err?.message ?? "No data"} />;
 
-  return <TV schedule={schedule} />;
+  return <TV schedule={schedule} conferenceName={conference.name} />;
 }
 
 createRoot(document.getElementById("root")!).render(<TVPage />);
