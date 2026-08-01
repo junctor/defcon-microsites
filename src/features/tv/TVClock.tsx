@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { CONFERENCE_NAME } from "@/lib/conference";
 
-export default function TVClock() {
+export default function TVClock({ conferenceName }: { conferenceName: string }) {
   const fmt = useMemo(
     () =>
       new Intl.DateTimeFormat("en-US", {
@@ -25,7 +24,7 @@ export default function TVClock() {
 
   return (
     <header aria-label="Current time in America/Los_Angeles" className="tv-clock">
-      <h1 className="tv-clock__title">{CONFERENCE_NAME}</h1>
+      <h1 className="tv-clock__title">{conferenceName}</h1>
 
       <div aria-hidden="true" className="tv-clock__divider" />
 
