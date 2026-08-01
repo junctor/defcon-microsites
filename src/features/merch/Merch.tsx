@@ -16,7 +16,6 @@ import {
   getRowsPerPage,
   getStockState,
   isOneSizeProduct,
-  isSoldOut,
   paginate,
   type MerchStockState,
 } from "./merchData";
@@ -224,11 +223,7 @@ function SizedBoard({
           </thead>
           <tbody>
             {products.map((product) => (
-              <tr
-                key={product.fields.id}
-                className={isSoldOut(product) ? "merch-board__row--sold-out" : undefined}
-                data-merch-page-row
-              >
+              <tr key={product.fields.id} data-merch-page-row>
                 <th scope="row">
                   <ProductName product={product} />
                 </th>
@@ -309,11 +304,7 @@ function OneSizeBoard({
                   (item) => item.code.toUpperCase() === "OSFA",
                 );
                 return (
-                  <tr
-                    key={product.fields.id}
-                    className={isSoldOut(product) ? "merch-board__row--sold-out" : undefined}
-                    data-merch-page-row
-                  >
+                  <tr key={product.fields.id} data-merch-page-row>
                     <th scope="row">
                       <ProductName product={product} />
                     </th>
@@ -341,9 +332,7 @@ function MobileProduct({ product, sizes }: { product: FBProductDocument; sizes: 
   const visibleSizes = oneSize ? ["OSFA"] : sizes;
 
   return (
-    <article
-      className={`merch-mobile-product${isSoldOut(product) ? " merch-mobile-product--sold-out" : ""}`}
-    >
+    <article className="merch-mobile-product">
       <ProductName product={product} />
       <div className="merch-mobile-product__stock">
         {visibleSizes.map((size) => {
