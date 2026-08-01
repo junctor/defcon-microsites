@@ -8,7 +8,6 @@ export type FilteredMerch = {
   sizedProducts: FBProductDocument[];
   oneSizeProducts: FBProductDocument[];
   sizeCodes: string[];
-  matchingBeforeSoldOut: number;
 };
 
 export function getStockState(status: StockStatus | undefined): MerchStockState {
@@ -80,39 +79,19 @@ export function filterMerchProducts(
         a.name.localeCompare(b.name),
     );
 
-  let candidates = sorted.filter((product) => {
-    const oneSize = isOneSizeProduct(product);
-    if (config.show === "sized") return !oneSize;
-    if (config.show === "one-size") return oneSize;
-    return config.showOneSize || !oneSize;
-  });
-
-  if (config.includeIds.size > 0) {
-    candidates = candidates.filter((product) => config.includeIds.has(product.fields.id));
-  }
-  candidates = candidates.filter((product) => !config.excludeIds.has(product.fields.id));
-
-  const matchingBeforeSoldOut = candidates.length;
-  if (config.hideSoldOut) {
-    candidates = candidates.filter((product) => !isSoldOut(product));
-  }
-  if (config.limit != null) {
-    candidates = candidates.slice(0, config.limit);
-  }
+  const candidates = sorted.filter((product) =>
+    isOneSizeProduct(product) ? config.showOSFA : config.showSized,
+  );
 
   const sizedProducts = candidates.filter((product) => !isOneSizeProduct(product));
   const oneSizeProducts = candidates.filter(isOneSizeProduct);
-  const availableSizes = getAvailableSizes(sizedProducts);
-  const requestedSizeSet = new Set(config.requestedSizes);
-  const requestedSizes = availableSizes.filter((size) => requestedSizeSet.has(size));
-  const sizeCodes = requestedSizes.length > 0 ? requestedSizes : availableSizes;
+  const sizeCodes = getAvailableSizes(sizedProducts);
 
   return {
     candidates,
     sizedProducts,
     oneSizeProducts,
     sizeCodes,
-    matchingBeforeSoldOut,
   };
 }
 
@@ -132,9 +111,9 @@ export function paginate<T>(items: T[], pageSize: number) {
 }
 
 export function getRowsPerPage(viewportHeight: number, density: MerchDensity) {
-  const rowsAt1080 = { comfortable: 6, compact: 8, dense: 9 }[density];
+  const rowsAt1080 = { compact: 8, dense: 9 }[density];
   const scaled = Math.floor(Math.pow(viewportHeight / 1080, 0.7) * rowsAt1080);
-  const minimum = { comfortable: 5, compact: 7, dense: 8 }[density];
-  const maximum = { comfortable: 10, compact: 13, dense: 15 }[density];
+  const minimum = { compact: 7, dense: 8 }[density];
+  const maximum = { compact: 13, dense: 15 }[density];
   return Math.max(minimum, Math.min(maximum, scaled));
 }
