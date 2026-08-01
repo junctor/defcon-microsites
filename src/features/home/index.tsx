@@ -5,6 +5,17 @@ import { CONFERENCE_NAME } from "@/lib/conference";
 
 const baseUrl = import.meta.env.BASE_URL;
 
+function redirectStandaloneRoute() {
+  const basePath = baseUrl.replace(/\/$/, "");
+  const standalonePaths = new Set([`${basePath}/merch`, `${basePath}/tv`]);
+  if (!standalonePaths.has(window.location.pathname)) return false;
+
+  const destination = new URL(window.location.href);
+  destination.pathname = `${destination.pathname}/`;
+  window.location.replace(destination);
+  return true;
+}
+
 function HomePage() {
   return (
     <main className="home-page">
@@ -29,4 +40,6 @@ function HomePage() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<HomePage />);
+if (!redirectStandaloneRoute()) {
+  createRoot(document.getElementById("root")!).render(<HomePage />);
+}
