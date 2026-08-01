@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import gsap from "gsap";
 import type { ConferenceConfig } from "@/lib/conference";
 import type { FBProductDocument, FBProducts, FBVariant } from "@/types/ht";
@@ -12,7 +20,7 @@ import {
   paginate,
   type MerchStockState,
 } from "./merchData";
-import type { MerchConfig } from "./merchConfig";
+import { getMerchDisplayHref, MERCH_RELOAD_MINUTES, type MerchConfig } from "./merchConfig";
 import type { MerchInventoryState } from "./useMerchInventory";
 
 type MerchProps = {
@@ -23,8 +31,8 @@ type MerchProps = {
 };
 
 type BoardPage = {
-  kind: "sized" | "one-size";
-  products: FBProductDocument[];
+  sized: FBProductDocument[];
+  oneSize: FBProductDocument[];
 };
 
 const syncTimeFormatter = new Intl.DateTimeFormat("en-US", {
@@ -32,6 +40,25 @@ const syncTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit",
 });
+
+const statusTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+function getBoardRowStyle(rows: number): CSSProperties {
+  const rowCount = Math.max(rows, 1);
+  const fullRowHeight = Math.min(120, Math.max(10, (window.innerHeight - 100) / (rowCount + 1)));
+  return {
+    "--merch-full-row-height": `${fullRowHeight}px`,
+    "--merch-full-stock-size": `${Math.max(9, fullRowHeight - 10)}px`,
+    "--merch-full-title-size": `${Math.min(30, Math.max(8, fullRowHeight * 0.32))}px`,
+    "--merch-full-label-size": `${Math.min(22, Math.max(7, fullRowHeight * 0.25))}px`,
+  } as CSSProperties;
+}
 
 function useViewport() {
   const [viewport, setViewport] = useState(() => ({
@@ -154,15 +181,20 @@ function SizedBoard({
   pageIndex,
   totalPages,
   inventory,
+  showTelemetry = true,
 }: {
   products: FBProductDocument[];
   sizes: string[];
   pageIndex: number;
   totalPages: number;
   inventory: MerchInventoryState;
+  showTelemetry?: boolean;
 }) {
   return (
-    <section className="merch-board__section" aria-labelledby="sized-products">
+    <section
+      className="merch-board__section merch-board__section--sized"
+      aria-labelledby="sized-products"
+    >
       <div className="merch-board__table-wrap">
         <table className="merch-board__table merch-board__table--sized">
           <caption id="sized-products">Sized merchandise availability</caption>
@@ -180,6 +212,7 @@ function SizedBoard({
                   pageIndex={pageIndex}
                   totalPages={totalPages}
                   inventory={inventory}
+                  showTelemetry={showTelemetry}
                 />
               </th>
               {sizes.map((size) => (
@@ -224,12 +257,14 @@ function OneSizeBoard({
   pageIndex,
   totalPages,
   inventory,
+  showTelemetry = true,
 }: {
   products: FBProductDocument[];
   twoColumns: boolean;
   pageIndex: number;
   totalPages: number;
   inventory: MerchInventoryState;
+  showTelemetry?: boolean;
 }) {
   const splitAt = Math.ceil(products.length / 2);
   const productColumns =
@@ -262,7 +297,7 @@ function OneSizeBoard({
                     pageIndex={pageIndex}
                     totalPages={totalPages}
                     inventory={inventory}
-                    showTelemetry={columnIndex === 0}
+                    showTelemetry={showTelemetry && columnIndex === 0}
                   />
                 </th>
                 <th scope="col">Status</th>
@@ -301,71 +336,142 @@ function OneSizeBoard({
   );
 }
 
-function CardsBoard({
-  products,
-  sizes,
-  pageIndex,
-  totalPages,
-  inventory,
-}: {
-  products: FBProductDocument[];
-  sizes: string[];
-  pageIndex: number;
-  totalPages: number;
-  inventory: MerchInventoryState;
-}) {
+function MobileProduct({ product, sizes }: { product: FBProductDocument; sizes: string[] }) {
+  const oneSize = isOneSizeProduct(product);
+  const visibleSizes = oneSize ? ["OSFA"] : sizes;
+
   return (
-    <section className="merch-cards-board" aria-label="Merchandise availability cards">
-      <div className="merch-cards-board__header">
-        <BoardHeading
-          title="Merch products"
-          pageIndex={pageIndex}
-          totalPages={totalPages}
-          inventory={inventory}
-        />
-      </div>
-      <div className="merch-cards">
-        {products.map((product) => {
-          const oneSize = isOneSizeProduct(product);
-          const variants = oneSize
-            ? product.fields.variants.filter((variant) => variant.code.toUpperCase() === "OSFA")
-            : sizes
-                .map((size) =>
-                  product.fields.variants.find((variant) => variant.code.toUpperCase() === size),
-                )
-                .filter((variant): variant is FBVariant => variant != null);
+    <article
+      className={`merch-mobile-product${isSoldOut(product) ? " merch-mobile-product--sold-out" : ""}`}
+    >
+      <ProductName product={product} />
+      <div className="merch-mobile-product__stock">
+        {visibleSizes.map((size) => {
+          const variant = product.fields.variants.find(
+            (item) => item.code.toUpperCase() === (oneSize ? "OSFA" : size),
+          );
           return (
-            <article
-              className={`merch-card${isSoldOut(product) ? " merch-card--sold-out" : ""}`}
-              key={product.fields.id}
-              data-merch-page-row
-            >
-              <ProductName product={product} />
-              <div className="merch-card__stock">
-                {variants.map((variant) => (
-                  <StockCell
-                    key={variant.variant_id}
-                    variant={variant}
-                    size={oneSize ? "OS" : variant.code.toUpperCase()}
-                    oneSize={oneSize}
-                    productId={product.fields.id}
-                  />
-                ))}
-              </div>
-            </article>
+            <div className="merch-mobile-variant" key={size}>
+              <span className="merch-mobile-variant__size">{size}</span>
+              <StockCell
+                variant={variant}
+                size={oneSize ? "OS" : size}
+                oneSize={oneSize}
+                productId={product.fields.id}
+              />
+            </div>
           );
         })}
       </div>
+    </article>
+  );
+}
+
+function MobileBoard({
+  sizedProducts,
+  oneSizeProducts,
+  sizes,
+}: {
+  sizedProducts: FBProductDocument[];
+  oneSizeProducts: FBProductDocument[];
+  sizes: string[];
+}) {
+  const groups = [
+    { title: "Sized products", products: sizedProducts },
+    { title: "One-size products", products: oneSizeProducts },
+  ].filter((group) => group.products.length > 0);
+
+  return (
+    <section className="merch-mobile-board" aria-labelledby="mobile-inventory-title">
+      <h1 id="mobile-inventory-title">Merch inventory</h1>
+      {groups.map((group) => (
+        <section className="merch-mobile-group" key={group.title}>
+          <h2>{group.title}</h2>
+          <div className="merch-mobile-products">
+            {group.products.map((product) => (
+              <MobileProduct product={product} sizes={sizes} key={product.fields.id} />
+            ))}
+          </div>
+        </section>
+      ))}
     </section>
   );
 }
 
-function getEmptyMessage(sourceCount: number, matchingBeforeSoldOut: number, config: MerchConfig) {
+function getEmptyMessage(sourceCount: number) {
   if (sourceCount === 0) return "INVENTORY SOURCE CONTAINS NO PRODUCTS";
-  if (config.hideSoldOut && matchingBeforeSoldOut > 0) {
-    return "ALL SELECTED PRODUCTS ARE SOLD OUT";
-  }
   return "NO PRODUCTS MATCH THIS DISPLAY";
+}
+
+function DisplayStatus({
+  conference,
+  config,
+  inventory,
+  pageIndex,
+  totalPages,
+  showPage,
+}: {
+  conference: ConferenceConfig;
+  config: MerchConfig;
+  inventory: MerchInventoryState;
+  pageIndex: number;
+  totalPages: number;
+  showPage: boolean;
+}) {
+  const connectionLabel = {
+    live: "Connected",
+    syncing: "Reconnecting…",
+    stale: "Stale • Reconnecting…",
+    offline: "Offline • Last-known Inventory",
+  }[inventory.connection];
+
+  return (
+    <footer className="merch-status">
+      <p aria-live="polite">
+        <strong>{conference.name}</strong>
+        <span aria-hidden="true">•</span>
+        <span>
+          {inventory.lastSuccessfulSync == null
+            ? "Waiting for update"
+            : `Updated ${statusTimeFormatter.format(inventory.lastSuccessfulSync)}`}
+        </span>
+        <span aria-hidden="true">•</span>
+        <span
+          className={`merch-status__connection merch-status__connection--${inventory.connection}`}
+        >
+          {connectionLabel}
+        </span>
+        {showPage && (
+          <>
+            <span aria-hidden="true">•</span>
+            <span>
+              Page {totalPages === 0 ? 0 : pageIndex + 1} / {totalPages}
+            </span>
+          </>
+        )}
+      </p>
+      <nav className="merch-view-switcher" aria-label="Inventory display mode">
+        <a
+          aria-current={config.displayView === "mobile" ? "page" : undefined}
+          href={getMerchDisplayHref("mobile")}
+        >
+          Compact List
+        </a>
+        <a
+          aria-current={config.displayView === "rotating" ? "page" : undefined}
+          href={getMerchDisplayHref("rotating")}
+        >
+          Rotating Pages
+        </a>
+        <a
+          aria-current={config.displayView === "full" ? "page" : undefined}
+          href={getMerchDisplayHref("full")}
+        >
+          Full Inventory
+        </a>
+      </nav>
+    </footer>
+  );
 }
 
 export default function Merch({ products, config, conference, inventory }: MerchProps) {
@@ -379,37 +485,43 @@ export default function Merch({ products, config, conference, inventory }: Merch
     [config, products.documents],
   );
   const rowsPerPage = getRowsPerPage(viewport.height, config.density);
-  const twoColumnOneSize = viewport.width > 1100;
+  const isRotatingDisplay = config.displayView === "rotating";
+  const hasBothPanels = filtered.sizedProducts.length > 0 && filtered.oneSizeProducts.length > 0;
+  const twoColumnOneSize = viewport.width > 1100 && !hasBothPanels;
   const oneSizePageSize = rowsPerPage * (twoColumnOneSize ? 2 : 1);
-  const cardPageSize = Math.max(4, Math.min(12, Math.floor(rowsPerPage / 2) * 2));
-  const boardPages = useMemo<BoardPage[]>(
-    () => [
-      ...paginate(filtered.sizedProducts, rowsPerPage).map((page) => ({
-        kind: "sized" as const,
-        products: page,
-      })),
-      ...paginate(filtered.oneSizeProducts, oneSizePageSize).map((page) => ({
-        kind: "one-size" as const,
-        products: page,
-      })),
-    ],
-    [filtered.oneSizeProducts, filtered.sizedProducts, oneSizePageSize, rowsPerPage],
-  );
-  const cardPages = useMemo(
-    () => paginate(filtered.candidates, cardPageSize),
-    [cardPageSize, filtered.candidates],
-  );
-  const totalPages = config.view === "cards" ? cardPages.length : boardPages.length;
+  const boardPages = useMemo<BoardPage[]>(() => {
+    if (!isRotatingDisplay) {
+      return [{ sized: filtered.sizedProducts, oneSize: filtered.oneSizeProducts }];
+    }
+    const sizedPages = paginate(filtered.sizedProducts, rowsPerPage);
+    const oneSizePages = paginate(filtered.oneSizeProducts, oneSizePageSize);
+    const pageCount = Math.max(sizedPages.length, oneSizePages.length);
+    return Array.from({ length: pageCount }, (_, index) => ({
+      sized: sizedPages.length > 0 ? sizedPages[index % sizedPages.length] : [],
+      oneSize: oneSizePages.length > 0 ? oneSizePages[index % oneSizePages.length] : [],
+    }));
+  }, [
+    filtered.oneSizeProducts,
+    filtered.sizedProducts,
+    isRotatingDisplay,
+    oneSizePageSize,
+    rowsPerPage,
+  ]);
+  const totalPages = boardPages.length;
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, (config.page ?? 1) - 1));
   const [reloading, setReloading] = useState(false);
-  const [nextReload] = useState<number | null>(() =>
-    config.reloadMinutes > 0 ? Date.now() + config.reloadMinutes * 60_000 : null,
-  );
+  const [nextReload] = useState(() => Date.now() + MERCH_RELOAD_MINUTES * 60_000);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const activePageIndex = totalPages > 0 ? Math.min(pageIndex, totalPages - 1) : 0;
   const visibleBoardPage = boardPages[activePageIndex] ?? null;
-  const visibleCards = cardPages[activePageIndex] ?? [];
+  const visibleBoardRows = visibleBoardPage
+    ? Math.max(
+        visibleBoardPage.sized.length,
+        Math.ceil(visibleBoardPage.oneSize.length / (twoColumnOneSize ? 2 : 1)),
+        1,
+      )
+    : 1;
 
   useEffect(() => {
     setPageIndex((current) => (totalPages === 0 ? 0 : Math.min(current, totalPages - 1)));
@@ -428,7 +540,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
   }, []);
 
   useLayoutEffect(() => {
-    if (!pageRef.current || reloading) return;
+    if (!isRotatingDisplay || !pageRef.current || reloading) return;
     const rows = pageRef.current.querySelectorAll("[data-merch-page-row]");
     if (rows.length === 0) return;
     const stockCellColumns = Array.from(rows).reduce<HTMLElement[][]>((columns, row) => {
@@ -438,25 +550,27 @@ export default function Merch({ products, config, conference, inventory }: Merch
       return columns;
     }, []);
     const context = gsap.context(() => {
-      const landingDuration = reducedMotion ? 0.01 : 0.36;
-      const clackHold = reducedMotion ? 0 : 0.04;
-      const rowStagger = reducedMotion ? 0 : 0.075;
+      const landingDuration = reducedMotion ? 0.01 : 0.48;
+      const clackHold = reducedMotion ? 0 : 0.08;
+      const rowStagger = reducedMotion ? 0 : 0.08;
       const timeline = gsap
         .timeline()
         .fromTo(
           rows,
           {
-            opacity: reducedMotion ? 1 : 0.7,
+            filter: reducedMotion ? "none" : "brightness(0.08)",
+            opacity: reducedMotion ? 1 : 0.18,
             backfaceVisibility: "hidden",
             force3D: true,
             rotationX: reducedMotion ? 0 : -8,
             scaleY: reducedMotion ? 1 : 0.95,
             transformOrigin: "50% 0%",
             transformPerspective: 700,
-            willChange: "transform,opacity",
+            willChange: "transform,filter,opacity",
             y: reducedMotion ? 0 : 8,
           },
           {
+            filter: "brightness(1)",
             opacity: 1,
             rotationX: reducedMotion ? 0 : 1.5,
             scaleY: 1,
@@ -471,10 +585,10 @@ export default function Merch({ products, config, conference, inventory }: Merch
           {
             rotationX: 0,
             y: 0,
-            duration: reducedMotion ? 0.01 : 0.14,
+            duration: reducedMotion ? 0.01 : 0.18,
             ease: "power1.out",
             stagger: rowStagger,
-            clearProps: "transform,transformOrigin,opacity,willChange,backfaceVisibility",
+            clearProps: "transform,transformOrigin,filter,opacity,willChange,backfaceVisibility",
           },
           landingDuration + clackHold,
         );
@@ -497,7 +611,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
               filter: "brightness(1)",
               rotationX: 0,
               scaleY: 1,
-              duration: 0.2,
+              duration: 0.26,
               ease: "steps(4)",
               clearProps: "transform,transformOrigin,filter,willChange,backfaceVisibility",
             },
@@ -507,7 +621,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
       }
     }, pageRef);
     return () => context.revert();
-  }, [activePageIndex, reducedMotion, reloading]);
+  }, [activePageIndex, isRotatingDisplay, reducedMotion, reloading]);
 
   const advancePage = useCallback(() => {
     if (totalPages <= 1 || reloading || !pageRef.current) return;
@@ -517,29 +631,29 @@ export default function Merch({ products, config, conference, inventory }: Merch
     rotationTimelineRef.current = gsap.timeline({
       onComplete: () => {
         rotationTimelineRef.current = null;
-        gsap.set(rows, {
-          clearProps: "transform,transformOrigin,opacity,willChange,backfaceVisibility",
-        });
         setPageIndex((current) => (current + 1) % totalPages);
       },
     });
-    rotationTimelineRef.current.to(rows, {
-      opacity: reducedMotion ? 1 : 0.7,
-      backfaceVisibility: "hidden",
-      force3D: true,
-      rotationX: reducedMotion ? 0 : 4,
-      scaleY: reducedMotion ? 1 : 0.97,
-      transformOrigin: "50% 100%",
-      transformPerspective: 700,
-      willChange: "transform,opacity",
-      duration: reducedMotion ? 0.01 : 0.18,
-      ease: reducedMotion ? "none" : "steps(3)",
-      stagger: reducedMotion ? 0 : 0.025,
-    });
+    rotationTimelineRef.current
+      .to(rows, {
+        filter: reducedMotion ? "none" : "brightness(0.08)",
+        opacity: reducedMotion ? 1 : 0.18,
+        backfaceVisibility: "hidden",
+        force3D: true,
+        rotationX: reducedMotion ? 0 : 6,
+        scaleY: reducedMotion ? 1 : 0.95,
+        transformOrigin: "50% 100%",
+        transformPerspective: 700,
+        willChange: "transform,filter,opacity",
+        duration: reducedMotion ? 0.01 : 0.28,
+        ease: reducedMotion ? "none" : "steps(4)",
+        stagger: reducedMotion ? 0 : 0.034,
+      })
+      .to({}, { duration: reducedMotion ? 0 : 0.06 });
   }, [reducedMotion, reloading, stopRotation, totalPages]);
 
   useEffect(() => {
-    if (config.rotateSeconds === 0 || totalPages <= 1 || reloading) return;
+    if (!isRotatingDisplay || config.rotateSeconds === 0 || totalPages <= 1 || reloading) return;
     let timer: number | null = null;
     const dueAt = Date.now() + config.rotateSeconds * 1_000;
     const schedule = () => {
@@ -573,7 +687,15 @@ export default function Merch({ products, config, conference, inventory }: Merch
       document.removeEventListener("visibilitychange", handleVisibility);
       stopRotation();
     };
-  }, [activePageIndex, advancePage, config.rotateSeconds, reloading, stopRotation, totalPages]);
+  }, [
+    activePageIndex,
+    advancePage,
+    config.rotateSeconds,
+    isRotatingDisplay,
+    reloading,
+    stopRotation,
+    totalPages,
+  ]);
 
   useLayoutEffect(() => {
     const nextStock = new Map<string, MerchStockState>();
@@ -635,7 +757,6 @@ export default function Merch({ products, config, conference, inventory }: Merch
   }, [filtered.candidates, reducedMotion]);
 
   useEffect(() => {
-    if (config.reloadMinutes === 0 || nextReload == null) return;
     const triggerReload = () => {
       if (Date.now() >= nextReload) setReloading(true);
     };
@@ -648,7 +769,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [config.reloadMinutes, nextReload]);
+  }, [nextReload]);
 
   useLayoutEffect(() => {
     if (!reloading || !rootRef.current) return;
@@ -677,93 +798,71 @@ export default function Merch({ products, config, conference, inventory }: Merch
     return () => context.revert();
   }, [reducedMotion, reloading, stopRotation]);
 
-  const emptyMessage = getEmptyMessage(
-    inventory.sourceCount,
-    filtered.matchingBeforeSoldOut,
-    config,
-  );
+  const emptyMessage = getEmptyMessage(inventory.sourceCount);
 
   return (
     <main
-      className={`merch-display merch-display--${config.density}`}
+      className={`merch-display merch-display--${config.displayView} merch-display--${config.density}`}
       data-connection={inventory.connection}
+      data-display-view={config.displayView}
       ref={rootRef}
     >
       <div className="merch-board">
-        <div className="merch-board__content" ref={pageRef}>
+        <div
+          className={`merch-board__content${
+            visibleBoardPage?.sized.length && visibleBoardPage.oneSize.length
+              ? " merch-board__content--split"
+              : ""
+          }`}
+          ref={pageRef}
+          style={getBoardRowStyle(visibleBoardRows)}
+        >
           {filtered.candidates.length === 0 ? (
             <div className="merch-board__empty" role="status">
               <strong>{emptyMessage}</strong>
               <span>CHECK DISPLAY FILTERS OR LIVE INVENTORY STATUS</span>
             </div>
-          ) : config.view === "cards" ? (
-            <CardsBoard
-              products={visibleCards}
+          ) : config.displayView === "mobile" ? (
+            <MobileBoard
+              sizedProducts={filtered.sizedProducts}
+              oneSizeProducts={filtered.oneSizeProducts}
               sizes={filtered.sizeCodes}
-              pageIndex={activePageIndex}
-              totalPages={totalPages}
-              inventory={inventory}
-            />
-          ) : visibleBoardPage?.kind === "sized" ? (
-            <SizedBoard
-              products={visibleBoardPage.products}
-              sizes={filtered.sizeCodes}
-              pageIndex={activePageIndex}
-              totalPages={totalPages}
-              inventory={inventory}
             />
           ) : visibleBoardPage ? (
-            <OneSizeBoard
-              products={visibleBoardPage.products}
-              twoColumns={twoColumnOneSize}
-              pageIndex={activePageIndex}
-              totalPages={totalPages}
-              inventory={inventory}
-            />
+            <>
+              {visibleBoardPage.sized.length > 0 && (
+                <SizedBoard
+                  products={visibleBoardPage.sized}
+                  sizes={filtered.sizeCodes}
+                  pageIndex={activePageIndex}
+                  totalPages={totalPages}
+                  inventory={inventory}
+                  showTelemetry={!hasBothPanels}
+                />
+              )}
+              {visibleBoardPage.oneSize.length > 0 && (
+                <OneSizeBoard
+                  products={visibleBoardPage.oneSize}
+                  twoColumns={twoColumnOneSize}
+                  pageIndex={activePageIndex}
+                  totalPages={totalPages}
+                  inventory={inventory}
+                  showTelemetry={!hasBothPanels}
+                />
+              )}
+            </>
           ) : null}
         </div>
       </div>
 
-      {config.debug && (
-        <aside className="merch-debug" aria-label="Display diagnostics">
-          <strong>MERCH DISPLAY DEBUG</strong>
-          <span>conference={conference.code}</span>
-          <span>
-            show={config.show} view={config.view} oneSize={String(config.showOneSize)}
-          </span>
-          <span>
-            density={config.density} rows={rowsPerPage} limit={config.limit ?? "none"}{" "}
-            requestedPage=
-            {config.page ?? "auto"}
-          </span>
-          <span>
-            source={inventory.sourceCount} filtered={filtered.candidates.length}
-          </span>
-          <span>
-            page={totalPages === 0 ? 0 : activePageIndex + 1}/{totalPages}
-          </span>
-          <span>
-            rotate={config.rotateSeconds}s refresh={config.refreshSeconds}s reload=
-            {config.reloadMinutes}m
-          </span>
-          <span>
-            connection={inventory.connection} viewport={viewport.width}x{viewport.height}
-          </span>
-          <span>
-            lastSync=
-            {inventory.lastSuccessfulSync
-              ? new Date(inventory.lastSuccessfulSync).toISOString()
-              : "none"}
-          </span>
-          <span>
-            nextRefresh=
-            {inventory.nextReconciliation
-              ? new Date(inventory.nextReconciliation).toISOString()
-              : "disabled"}
-          </span>
-          <span>nextReload={nextReload ? new Date(nextReload).toISOString() : "disabled"}</span>
-        </aside>
-      )}
+      <DisplayStatus
+        conference={conference}
+        config={config}
+        inventory={inventory}
+        pageIndex={activePageIndex}
+        totalPages={totalPages}
+        showPage={config.displayView !== "mobile"}
+      />
 
       {reloading && (
         <div className="merch-refresh" role="status">
