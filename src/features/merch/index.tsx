@@ -1,50 +1,39 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { collection, onSnapshot } from "firebase/firestore";
 
 import Merch from "./Merch";
+import MerchLoading from "./MerchLoading";
+import { parseMerchConfig } from "./merchConfig";
+import { useMerchInventory } from "./useMerchInventory";
 import "@/index.css";
-import { db } from "@/lib/firebase";
-import { CONFERENCE_CODE, CONFERENCE_NAME } from "@/lib/conference";
-import Loading from "@/components/misc/Loading";
-import ErrorView from "@/components/misc/Error";
-import type { FBProduct, FBProducts } from "@/types/ht";
+import { parseConferenceConfig } from "@/lib/conference";
 
 function MerchPage() {
-  const [data, setData] = useState<FBProducts | null>(null);
-  const [err, setErr] = useState<Error | null>(null);
-  const [loading, setLoading] = useState(true);
+  const config = useMemo(() => parseMerchConfig(), []);
+  const conference = useMemo(() => parseConferenceConfig(), []);
+  const inventory = useMerchInventory(config.refreshSeconds, conference.code);
 
   useEffect(() => {
-    document.title = `${CONFERENCE_NAME} Merch`;
+    document.title = `${conference.name} Merch`;
+  }, [conference.name]);
 
-    const merchRef = collection(db, "conferences", CONFERENCE_CODE, "products");
+  const waitingForFirstServerResult =
+    inventory.data?.documents.length === 0 &&
+    inventory.lastSuccessfulSync == null &&
+    inventory.connection !== "live";
 
-    const unsubscribe = onSnapshot(
-      merchRef,
-      (snap) => {
-        const documents = snap.docs.map((doc) => ({
-          name: doc.id,
-          fields: doc.data() as FBProduct,
-        }));
+  if (!inventory.data || waitingForFirstServerResult) {
+    return <MerchLoading offline={inventory.connection === "offline"} />;
+  }
 
-        setData({ documents });
-        setLoading(false);
-      },
-      (err) => {
-        console.error(err);
-        setErr(err);
-        setLoading(false);
-      },
-    );
-
-    return unsubscribe; // cleanup
-  }, []);
-
-  if (loading) return <Loading />;
-  if (err || !data) return <ErrorView msg={err?.message ?? "No data"} />;
-
-  return <Merch products={data} />;
+  return (
+    <Merch
+      products={inventory.data}
+      config={config}
+      conference={conference}
+      inventory={inventory}
+    />
+  );
 }
 
 createRoot(document.getElementById("root")!).render(<MerchPage />);
