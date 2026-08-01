@@ -27,7 +27,6 @@ function normalizeConferenceCode(value: string | null): ConferenceCode | null {
 
 export function parseConferenceConfig(search = window.location.search): ConferenceConfig {
   const params = new URLSearchParams(search);
-  const requested = params.has("conference") ? params.get("conference") : params.get("conf");
-  const code = normalizeConferenceCode(requested) ?? DEFAULT_CONFERENCE.code;
+  const code = normalizeConferenceCode(params.get("conference")) ?? DEFAULT_CONFERENCE.code;
   return CONFERENCES[code];
 }
