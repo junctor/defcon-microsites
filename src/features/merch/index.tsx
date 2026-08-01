@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import Merch from "./Merch";
 import MerchLoading from "./MerchLoading";
-import { parseMerchConfig } from "./merchConfig";
+import { MERCH_REFRESH_SECONDS, parseMerchConfig } from "./merchConfig";
 import { useMerchInventory } from "./useMerchInventory";
 import "@/index.css";
 import { parseConferenceConfig } from "@/lib/conference";
@@ -11,7 +11,7 @@ import { parseConferenceConfig } from "@/lib/conference";
 function MerchPage() {
   const config = useMemo(() => parseMerchConfig(), []);
   const conference = useMemo(() => parseConferenceConfig(), []);
-  const inventory = useMerchInventory(config.refreshSeconds, conference.code);
+  const inventory = useMerchInventory(MERCH_REFRESH_SECONDS, conference.code);
 
   useEffect(() => {
     document.title = `${conference.name} Merch`;
