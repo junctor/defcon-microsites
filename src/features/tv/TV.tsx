@@ -6,6 +6,7 @@ import type { DefconSchedule, DefconEvent } from "../../types/ht";
 
 interface Props {
   schedule: DefconSchedule;
+  conferenceName: string;
 }
 
 function groupByDate(events: DefconSchedule): Record<string, DefconEvent[]> {
@@ -18,7 +19,7 @@ function groupByDate(events: DefconSchedule): Record<string, DefconEvent[]> {
   }, {});
 }
 
-export default function TV({ schedule }: Props) {
+export default function TV({ schedule, conferenceName }: Props) {
   const params = new URLSearchParams(window.location.search);
   const lParam = params.get("l") ?? "";
   const tagParam = params.get("tag");
@@ -121,7 +122,7 @@ export default function TV({ schedule }: Props) {
 
   return (
     <div className="tv-page">
-      <TVClock />
+      <TVClock conferenceName={conferenceName} />
 
       <main className="tv-content">
         {Array.from(filtered.entries()).map(([day, events]) => (
