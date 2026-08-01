@@ -90,12 +90,7 @@ function StockCell({
       aria-label={`${oneSize ? "One size" : size}: ${accessibleState}`}
     >
       {state === "available" && (oneSize ? "IN" : size)}
-      {state === "low" && (
-        <>
-          {!oneSize && <span>{size}</span>}
-          <small>LOW</small>
-        </>
-      )}
+      {state === "low" && (oneSize ? "IN" : size)}
       {state === "out" && "OUT"}
       {state === "unknown" && "UNK"}
     </span>
@@ -169,12 +164,12 @@ function SizedBoard({
   return (
     <section className="merch-board__section" aria-labelledby="sized-products">
       <div className="merch-board__table-wrap">
-        <table className="merch-board__table">
+        <table className="merch-board__table merch-board__table--sized">
           <caption id="sized-products">Sized merchandise availability</caption>
           <colgroup>
             <col className="merch-board__product-column" />
             {sizes.map((size) => (
-              <col key={size} />
+              <col className="merch-board__size-column" key={size} />
             ))}
           </colgroup>
           <thead>
@@ -436,11 +431,17 @@ export default function Merch({ products, config, conference, inventory }: Merch
     if (!pageRef.current || reloading) return;
     const rows = pageRef.current.querySelectorAll("[data-merch-page-row]");
     if (rows.length === 0) return;
+    const stockCellColumns = Array.from(rows).reduce<HTMLElement[][]>((columns, row) => {
+      row.querySelectorAll<HTMLElement>(".merch-stock-cell").forEach((cell, columnIndex) => {
+        (columns[columnIndex] ??= []).push(cell);
+      });
+      return columns;
+    }, []);
     const context = gsap.context(() => {
       const landingDuration = reducedMotion ? 0.01 : 0.36;
       const clackHold = reducedMotion ? 0 : 0.04;
       const rowStagger = reducedMotion ? 0 : 0.075;
-      gsap
+      const timeline = gsap
         .timeline()
         .fromTo(
           rows,
@@ -477,6 +478,33 @@ export default function Merch({ products, config, conference, inventory }: Merch
           },
           landingDuration + clackHold,
         );
+
+      if (!reducedMotion) {
+        stockCellColumns.forEach((cells, columnIndex) => {
+          timeline.fromTo(
+            cells,
+            {
+              backfaceVisibility: "hidden",
+              filter: "brightness(0.82)",
+              force3D: true,
+              rotationX: -12,
+              scaleY: 0.92,
+              transformOrigin: "50% 50%",
+              transformPerspective: 500,
+              willChange: "transform,filter",
+            },
+            {
+              filter: "brightness(1)",
+              rotationX: 0,
+              scaleY: 1,
+              duration: 0.2,
+              ease: "steps(4)",
+              clearProps: "transform,transformOrigin,filter,willChange,backfaceVisibility",
+            },
+            0.12 + columnIndex * 0.035,
+          );
+        });
+      }
     }, pageRef);
     return () => context.revert();
   }, [activePageIndex, reducedMotion, reloading]);
