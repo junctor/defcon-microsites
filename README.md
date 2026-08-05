@@ -60,10 +60,12 @@ need these common deployment URLs:
 
 With no `view`, the page uses a compact card list built for phones and tablets. `view=rotating`
 selects the paged display and rotates every 15 seconds. `view=full` shows the complete inventory at
-once and automatically becomes dense enough to fit. In both large displays, Sized uses three quarters
-of the board and OSFA uses one quarter. If either `showSized=false` or `showOSFA=false` is set, the
-remaining group uses the full width. All three views share footer navigation for Compact List,
-Rotating Pages, and Full Inventory.
+once and automatically becomes dense enough to fit. On large landscape displays, the full view gives
+three fifths of the board to the sized matrix and splits OSFA products into two contiguous columns in
+the remaining space. Rotating pages give each product group the full board width, with two balanced
+OSFA columns where space permits. If either `showSized=false` or `showOSFA=false` is set, the remaining
+group uses the full width. All three views share footer navigation for Compact List, Rotating Pages,
+and Full Inventory.
 
 Every mode keeps sold-out products visible, reconciles Firebase every 2 minutes, and fully reloads
 every 10 minutes. `IN` is available, `LOW` is limited stock, `OUT` is unavailable, and `UNK` means the
