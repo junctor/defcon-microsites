@@ -110,6 +110,11 @@ export function paginate<T>(items: T[], pageSize: number) {
   return pages;
 }
 
+export function splitInHalf<T>(items: T[]) {
+  const splitAt = Math.ceil(items.length / 2);
+  return [items.slice(0, splitAt), items.slice(splitAt)] as const;
+}
+
 export function getRowsPerPage(viewportHeight: number, density: MerchDensity) {
   const rowsAt1080 = { compact: 8, dense: 9 }[density];
   const scaled = Math.floor(Math.pow(viewportHeight / 1080, 0.7) * rowsAt1080);
