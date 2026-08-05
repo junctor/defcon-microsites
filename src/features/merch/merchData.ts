@@ -2,6 +2,7 @@ import type { MerchConfig, MerchDensity } from "./merchConfig";
 import type { FBProductDocument, StockStatus } from "@/types/ht";
 
 export type MerchStockState = "available" | "low" | "out" | "unknown";
+export type MerchStockChangeDirection = "better" | "worse";
 
 export type FilteredMerch = {
   candidates: FBProductDocument[];
@@ -15,6 +16,21 @@ export function getStockState(status: StockStatus | undefined): MerchStockState 
   if (status === "LOW") return "low";
   if (status === "OUT") return "out";
   return "unknown";
+}
+
+export function getStockChangeDirection(
+  previous: MerchStockState,
+  next: MerchStockState,
+): MerchStockChangeDirection | null {
+  const stockRank: Partial<Record<MerchStockState, number>> = {
+    available: 2,
+    low: 1,
+    out: 0,
+  };
+  const previousRank = stockRank[previous];
+  const nextRank = stockRank[next];
+  if (previousRank == null || nextRank == null || previousRank === nextRank) return null;
+  return nextRank > previousRank ? "better" : "worse";
 }
 
 export function isOneSizeProduct(product: FBProductDocument) {
@@ -121,4 +137,15 @@ export function getRowsPerPage(viewportHeight: number, density: MerchDensity) {
   const minimum = { compact: 7, dense: 8 }[density];
   const maximum = { compact: 13, dense: 15 }[density];
   return Math.max(minimum, Math.min(maximum, scaled));
+}
+
+export function getMeasuredRowsPerPage(
+  availableHeight: number,
+  headerHeight: number,
+  minimumRowHeight: number,
+  safetyInset = 2,
+) {
+  if (availableHeight <= 0 || minimumRowHeight <= 0) return 1;
+  const rowsHeight = Math.max(0, availableHeight - headerHeight - safetyInset);
+  return Math.max(1, Math.floor(rowsHeight / minimumRowHeight));
 }

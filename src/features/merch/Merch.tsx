@@ -13,11 +13,14 @@ import type { FBProductDocument, FBProducts, FBVariant } from "@/types/ht";
 import {
   filterMerchProducts,
   getProductLabel,
+  getMeasuredRowsPerPage,
   getRowsPerPage,
+  getStockChangeDirection,
   getStockState,
   isOneSizeProduct,
   paginate,
   splitInHalf,
+  type MerchStockChangeDirection,
   type MerchStockState,
 } from "./merchData";
 import { getMerchDisplayHref, MERCH_RELOAD_MINUTES, type MerchConfig } from "./merchConfig";
@@ -34,6 +37,16 @@ type BoardPage = {
   sized: FBProductDocument[];
   oneSize: FBProductDocument[];
 };
+
+type StockChange = {
+  direction: MerchStockChangeDirection;
+  sequence: number;
+};
+
+type StockChanges = ReadonlyMap<string, StockChange>;
+
+const INVENTORY_CHANGE_DURATION_MS = 1_800;
+const ROTATING_HEIGHT_SAFETY_PX = 2;
 
 const syncTimeFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Los_Angeles",
@@ -58,6 +71,24 @@ function getBoardRowStyle(rows: number): CSSProperties {
     "--merch-full-title-size": `${Math.min(30, Math.max(15, fullRowHeight * 0.44))}px`,
     "--merch-full-label-size": `${Math.min(22, Math.max(13, fullRowHeight * 0.38))}px`,
   } as CSSProperties;
+}
+
+function getMinimumRowHeight(row: HTMLTableRowElement) {
+  return Array.from(row.cells).reduce((minimumHeight, cell) => {
+    const style = window.getComputedStyle(cell);
+    const contentElement = cell.firstElementChild;
+    const contentStyle = contentElement ? window.getComputedStyle(contentElement) : null;
+    const content = Math.max(
+      contentElement?.scrollHeight ?? 0,
+      Number.parseFloat(contentStyle?.minHeight ?? "0") || 0,
+    );
+    const chrome =
+      Number.parseFloat(style.paddingTop) +
+      Number.parseFloat(style.paddingBottom) +
+      Number.parseFloat(style.borderTopWidth) +
+      Number.parseFloat(style.borderBottomWidth);
+    return Math.max(minimumHeight, content + chrome);
+  }, 0);
 }
 
 function useViewport() {
@@ -95,14 +126,17 @@ function StockCell({
   size,
   oneSize = false,
   productId,
+  stockChanges,
 }: {
   variant?: FBVariant;
   size: string;
   oneSize?: boolean;
   productId: number;
+  stockChanges: StockChanges;
 }) {
   const state = getStockState(variant?.stock_status ?? (variant ? "" : "OUT"));
   const key = `${productId}:${variant?.variant_id ?? size}`;
+  const change = stockChanges.get(key);
   const accessibleState = {
     available: "in stock",
     low: "low stock",
@@ -112,8 +146,11 @@ function StockCell({
 
   return (
     <span
-      className={`merch-stock-cell merch-stock-cell--${state}`}
+      className={`merch-stock-cell merch-stock-cell--${state}${
+        change ? ` inventory-change--${change.direction}` : ""
+      }`}
       data-stock-key={key}
+      key={`${key}:${change?.sequence ?? 0}`}
       aria-label={`${oneSize ? "One size" : size}: ${accessibleState}`}
     >
       {state === "available" && (oneSize ? "IN" : size)}
@@ -140,12 +177,14 @@ function BoardHeading({
   totalPages,
   inventory,
   showTelemetry = true,
+  showSync = true,
 }: {
   title: string;
   pageIndex: number;
   totalPages: number;
   inventory: MerchInventoryState;
   showTelemetry?: boolean;
+  showSync?: boolean;
 }) {
   return (
     <div className="merch-board__heading">
@@ -157,7 +196,7 @@ function BoardHeading({
           </span>
         )}
       </h2>
-      {showTelemetry && (
+      {showTelemetry && showSync && (
         <span className="merch-board__telemetry">
           <span className="merch-board__sync-time">
             {formatSyncTime(inventory.lastSuccessfulSync)}
@@ -182,6 +221,8 @@ function SizedBoard({
   totalPages,
   inventory,
   showTelemetry = true,
+  showSync = true,
+  stockChanges,
 }: {
   products: FBProductDocument[];
   sizes: string[];
@@ -189,6 +230,8 @@ function SizedBoard({
   totalPages: number;
   inventory: MerchInventoryState;
   showTelemetry?: boolean;
+  showSync?: boolean;
+  stockChanges: StockChanges;
 }) {
   return (
     <section
@@ -213,6 +256,7 @@ function SizedBoard({
                   totalPages={totalPages}
                   inventory={inventory}
                   showTelemetry={showTelemetry}
+                  showSync={showSync}
                 />
               </th>
               {sizes.map((size) => (
@@ -234,7 +278,12 @@ function SizedBoard({
                   );
                   return (
                     <td key={size}>
-                      <StockCell variant={variant} size={size} productId={product.fields.id} />
+                      <StockCell
+                        variant={variant}
+                        size={size}
+                        productId={product.fields.id}
+                        stockChanges={stockChanges}
+                      />
                     </td>
                   );
                 })}
@@ -254,6 +303,8 @@ function OneSizeBoard({
   totalPages,
   inventory,
   showTelemetry = true,
+  showSync = true,
+  stockChanges,
 }: {
   products: FBProductDocument[];
   twoColumns: boolean;
@@ -261,6 +312,8 @@ function OneSizeBoard({
   totalPages: number;
   inventory: MerchInventoryState;
   showTelemetry?: boolean;
+  showSync?: boolean;
+  stockChanges: StockChanges;
 }) {
   const productColumns = twoColumns && products.length > 1 ? splitInHalf(products) : [products];
 
@@ -290,6 +343,7 @@ function OneSizeBoard({
                     totalPages={totalPages}
                     inventory={inventory}
                     showTelemetry={showTelemetry && columnIndex === 0}
+                    showSync={showSync}
                   />
                 </th>
                 <th scope="col">Status</th>
@@ -311,6 +365,7 @@ function OneSizeBoard({
                         size="OS"
                         oneSize
                         productId={product.fields.id}
+                        stockChanges={stockChanges}
                       />
                     </td>
                   </tr>
@@ -324,7 +379,15 @@ function OneSizeBoard({
   );
 }
 
-function MobileProduct({ product, sizes }: { product: FBProductDocument; sizes: string[] }) {
+function MobileProduct({
+  product,
+  sizes,
+  stockChanges,
+}: {
+  product: FBProductDocument;
+  sizes: string[];
+  stockChanges: StockChanges;
+}) {
   const oneSize = isOneSizeProduct(product);
   const visibleSizes = oneSize ? ["OSFA"] : sizes;
 
@@ -344,6 +407,7 @@ function MobileProduct({ product, sizes }: { product: FBProductDocument; sizes: 
                 size={oneSize ? "OS" : size}
                 oneSize={oneSize}
                 productId={product.fields.id}
+                stockChanges={stockChanges}
               />
             </div>
           );
@@ -357,10 +421,12 @@ function MobileBoard({
   sizedProducts,
   oneSizeProducts,
   sizes,
+  stockChanges,
 }: {
   sizedProducts: FBProductDocument[];
   oneSizeProducts: FBProductDocument[];
   sizes: string[];
+  stockChanges: StockChanges;
 }) {
   const groups = [
     { title: "Sized products", products: sizedProducts },
@@ -375,7 +441,12 @@ function MobileBoard({
           <h2>{group.title}</h2>
           <div className="merch-mobile-products">
             {group.products.map((product) => (
-              <MobileProduct product={product} sizes={sizes} key={product.fields.id} />
+              <MobileProduct
+                product={product}
+                sizes={sizes}
+                stockChanges={stockChanges}
+                key={product.fields.id}
+              />
             ))}
           </div>
         </section>
@@ -465,13 +536,23 @@ export default function Merch({ products, config, conference, inventory }: Merch
   const pageRef = useRef<HTMLDivElement>(null);
   const rotationTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const previousStockRef = useRef<Map<string, MerchStockState> | null>(null);
+  const previousConferenceRef = useRef(conference.code);
+  const stockChangeTimersRef = useRef(new Map<string, number>());
+  const stockChangeSequenceRef = useRef(0);
   const viewport = useViewport();
   const filtered = useMemo(
     () => filterMerchProducts(products.documents, config),
     [config, products.documents],
   );
-  const rowsPerPage = getRowsPerPage(viewport.height, config.density);
   const isRotatingDisplay = config.displayView === "rotating";
+  const fallbackRowsPerPage = getRowsPerPage(viewport.height, config.density);
+  const [rotatingLayout, setRotatingLayout] = useState(() => ({
+    rowsPerPage: fallbackRowsPerPage,
+    rowHeight: null as number | null,
+    measured: false,
+  }));
+  const [stockChanges, setStockChanges] = useState<Map<string, StockChange>>(() => new Map());
+  const rowsPerPage = isRotatingDisplay ? rotatingLayout.rowsPerPage : fallbackRowsPerPage;
   const twoColumnOneSize = viewport.width >= 1180;
   const oneSizePageSize = rowsPerPage * (twoColumnOneSize ? 2 : 1);
   const boardPages = useMemo<BoardPage[]>(() => {
@@ -511,8 +592,83 @@ export default function Merch({ products, config, conference, inventory }: Merch
     : 1;
 
   useEffect(() => {
+    if (isRotatingDisplay && !rotatingLayout.measured) return;
     setPageIndex((current) => (totalPages === 0 ? 0 : Math.min(current, totalPages - 1)));
-  }, [totalPages]);
+  }, [isRotatingDisplay, rotatingLayout.measured, totalPages]);
+
+  useLayoutEffect(() => {
+    if (!isRotatingDisplay || !pageRef.current) return;
+    const content = pageRef.current;
+    let frame: number | null = null;
+
+    const measure = () => {
+      frame = null;
+      const table = content.querySelector<HTMLTableElement>(".merch-board__table");
+      const header = table?.tHead;
+      const row = table?.tBodies[0]?.rows[0];
+      if (!table || !header || !row) return;
+
+      const availableHeight = content.getBoundingClientRect().height;
+      const headerHeight = header.getBoundingClientRect().height;
+      const minimumRowHeight = getMinimumRowHeight(row);
+      if (minimumRowHeight <= 0) return;
+
+      const measuredRows = getMeasuredRowsPerPage(
+        availableHeight,
+        headerHeight,
+        minimumRowHeight,
+        ROTATING_HEIGHT_SAFETY_PX,
+      );
+      const availableRowsHeight = Math.max(
+        minimumRowHeight,
+        availableHeight - headerHeight - ROTATING_HEIGHT_SAFETY_PX,
+      );
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const renderedRows = Math.max(
+        1,
+        (row.parentElement as HTMLTableSectionElement | null)?.rows.length ?? measuredRows,
+      );
+      const measuredRowHeight =
+        Math.floor((availableRowsHeight / renderedRows) * devicePixelRatio) / devicePixelRatio;
+
+      setRotatingLayout((current) =>
+        current.rowsPerPage === measuredRows &&
+        current.rowHeight != null &&
+        current.measured &&
+        Math.abs(current.rowHeight - measuredRowHeight) < 0.25
+          ? current
+          : { rowsPerPage: measuredRows, rowHeight: measuredRowHeight, measured: true },
+      );
+    };
+
+    const scheduleMeasure = () => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(measure);
+    };
+
+    const observer = new ResizeObserver(scheduleMeasure);
+    observer.observe(content);
+    const header = content.querySelector<HTMLElement>("thead");
+    const product = content.querySelector<HTMLElement>(".merch-product");
+    const stockCell = content.querySelector<HTMLElement>(".merch-stock-cell");
+    if (header) observer.observe(header);
+    if (product) observer.observe(product);
+    if (stockCell) observer.observe(stockCell);
+    void document.fonts?.ready.then(scheduleMeasure);
+    scheduleMeasure();
+
+    return () => {
+      observer.disconnect();
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [
+    activePageIndex,
+    filtered.candidates,
+    isRotatingDisplay,
+    viewport.height,
+    viewport.width,
+    visibleBoardRows,
+  ]);
 
   const stopRotation = useCallback(() => {
     if (!rotationTimelineRef.current) return;
@@ -684,7 +840,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
     totalPages,
   ]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const nextStock = new Map<string, MerchStockState>();
     filtered.candidates.forEach((product) => {
       product.fields.variants.forEach((variant) => {
@@ -696,52 +852,50 @@ export default function Merch({ products, config, conference, inventory }: Merch
     });
     const previousStock = previousStockRef.current;
     previousStockRef.current = nextStock;
-    if (!previousStock || !rootRef.current || reducedMotion) return;
+    if (previousConferenceRef.current !== conference.code) {
+      previousConferenceRef.current = conference.code;
+      previousStockRef.current = nextStock;
+      return;
+    }
+    if (!previousStock || reducedMotion) return;
 
-    const changedKeys = new Set(
-      Array.from(nextStock.entries())
-        .filter(
-          ([key, state]) => previousStock.get(key) != null && previousStock.get(key) !== state,
-        )
-        .map(([key]) => key),
-    );
-    if (changedKeys.size === 0) return;
-    const cells = Array.from(
-      rootRef.current.querySelectorAll<HTMLElement>("[data-stock-key]"),
-    ).filter((cell) => changedKeys.has(cell.dataset.stockKey ?? ""));
-    const context = gsap.context(() => {
-      gsap
-        .timeline()
-        .fromTo(
-          cells,
-          {
-            filter: "brightness(1.65)",
-            backfaceVisibility: "hidden",
-            force3D: true,
-            rotationX: -10,
-            scaleY: 0.94,
-            transformOrigin: "50% 50%",
-            transformPerspective: 500,
-            willChange: "transform,filter",
-          },
-          {
-            filter: "brightness(1.2)",
-            rotationX: 2,
-            scaleY: 1,
-            duration: 0.18,
-            ease: "steps(2)",
-          },
-        )
-        .to(cells, {
-          filter: "brightness(1)",
-          rotationX: 0,
-          duration: 0.14,
-          ease: "power1.out",
-          clearProps: "transform,transformOrigin,filter,willChange,backfaceVisibility",
+    const nextChanges = new Map<string, StockChange>();
+    nextStock.forEach((state, key) => {
+      const previousState = previousStock.get(key);
+      if (previousState == null) return;
+      const direction = getStockChangeDirection(previousState, state);
+      if (!direction) return;
+      nextChanges.set(key, {
+        direction,
+        sequence: (stockChangeSequenceRef.current += 1),
+      });
+    });
+    if (nextChanges.size === 0) return;
+
+    setStockChanges((current) => new Map([...current, ...nextChanges]));
+    nextChanges.forEach((change, key) => {
+      const currentTimer = stockChangeTimersRef.current.get(key);
+      if (currentTimer != null) window.clearTimeout(currentTimer);
+      const timer = window.setTimeout(() => {
+        stockChangeTimersRef.current.delete(key);
+        setStockChanges((current) => {
+          if (current.get(key)?.sequence !== change.sequence) return current;
+          const next = new Map(current);
+          next.delete(key);
+          return next;
         });
-    }, rootRef);
-    return () => context.revert();
-  }, [filtered.candidates, reducedMotion]);
+      }, INVENTORY_CHANGE_DURATION_MS);
+      stockChangeTimersRef.current.set(key, timer);
+    });
+  }, [conference.code, filtered.candidates, reducedMotion]);
+
+  useEffect(
+    () => () => {
+      stockChangeTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      stockChangeTimersRef.current.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     const triggerReload = () => {
@@ -802,7 +956,14 @@ export default function Merch({ products, config, conference, inventory }: Merch
               : ""
           }`}
           ref={pageRef}
-          style={getBoardRowStyle(visibleBoardRows)}
+          style={
+            {
+              ...getBoardRowStyle(visibleBoardRows),
+              ...(isRotatingDisplay && rotatingLayout.rowHeight != null
+                ? { "--merch-rotating-row-height": `${rotatingLayout.rowHeight}px` }
+                : {}),
+            } as CSSProperties
+          }
         >
           {filtered.candidates.length === 0 ? (
             <div className="merch-board__empty" role="status">
@@ -814,6 +975,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
               sizedProducts={filtered.sizedProducts}
               oneSizeProducts={filtered.oneSizeProducts}
               sizes={filtered.sizeCodes}
+              stockChanges={stockChanges}
             />
           ) : visibleBoardPage ? (
             <>
@@ -825,6 +987,8 @@ export default function Merch({ products, config, conference, inventory }: Merch
                   totalPages={totalPages}
                   inventory={inventory}
                   showTelemetry={!visiblePageHasBothPanels}
+                  showSync={!isRotatingDisplay}
+                  stockChanges={stockChanges}
                 />
               )}
               {visibleBoardPage.oneSize.length > 0 && (
@@ -835,6 +999,8 @@ export default function Merch({ products, config, conference, inventory }: Merch
                   totalPages={totalPages}
                   inventory={inventory}
                   showTelemetry={!visiblePageHasBothPanels}
+                  showSync={!isRotatingDisplay}
+                  stockChanges={stockChanges}
                 />
               )}
             </>
