@@ -17,6 +17,7 @@ import {
   getStockState,
   isOneSizeProduct,
   paginate,
+  splitInHalf,
   type MerchStockState,
 } from "./merchData";
 import { getMerchDisplayHref, MERCH_RELOAD_MINUTES, type MerchConfig } from "./merchConfig";
@@ -50,12 +51,12 @@ const statusTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 function getBoardRowStyle(rows: number): CSSProperties {
   const rowCount = Math.max(rows, 1);
-  const fullRowHeight = Math.min(120, Math.max(10, (window.innerHeight - 100) / (rowCount + 1)));
+  const fullRowHeight = Math.min(120, Math.max(24, (window.innerHeight - 100) / (rowCount + 1)));
   return {
     "--merch-full-row-height": `${fullRowHeight}px`,
-    "--merch-full-stock-size": `${Math.max(9, fullRowHeight - 10)}px`,
-    "--merch-full-title-size": `${Math.min(30, Math.max(8, fullRowHeight * 0.32))}px`,
-    "--merch-full-label-size": `${Math.min(22, Math.max(7, fullRowHeight * 0.25))}px`,
+    "--merch-full-stock-size": `${Math.max(32, fullRowHeight - 8)}px`,
+    "--merch-full-title-size": `${Math.min(30, Math.max(15, fullRowHeight * 0.44))}px`,
+    "--merch-full-label-size": `${Math.min(22, Math.max(13, fullRowHeight * 0.38))}px`,
   } as CSSProperties;
 }
 
@@ -261,11 +262,7 @@ function OneSizeBoard({
   inventory: MerchInventoryState;
   showTelemetry?: boolean;
 }) {
-  const splitAt = Math.ceil(products.length / 2);
-  const productColumns =
-    twoColumns && products.length > 1
-      ? [products.slice(0, splitAt), products.slice(splitAt)]
-      : [products];
+  const productColumns = twoColumns && products.length > 1 ? splitInHalf(products) : [products];
 
   return (
     <section
@@ -475,8 +472,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
   );
   const rowsPerPage = getRowsPerPage(viewport.height, config.density);
   const isRotatingDisplay = config.displayView === "rotating";
-  const hasBothPanels = filtered.sizedProducts.length > 0 && filtered.oneSizeProducts.length > 0;
-  const twoColumnOneSize = viewport.width > 1100 && !hasBothPanels;
+  const twoColumnOneSize = viewport.width >= 1180;
   const oneSizePageSize = rowsPerPage * (twoColumnOneSize ? 2 : 1);
   const boardPages = useMemo<BoardPage[]>(() => {
     if (!isRotatingDisplay) {
@@ -484,11 +480,10 @@ export default function Merch({ products, config, conference, inventory }: Merch
     }
     const sizedPages = paginate(filtered.sizedProducts, rowsPerPage);
     const oneSizePages = paginate(filtered.oneSizeProducts, oneSizePageSize);
-    const pageCount = Math.max(sizedPages.length, oneSizePages.length);
-    return Array.from({ length: pageCount }, (_, index) => ({
-      sized: sizedPages.length > 0 ? sizedPages[index % sizedPages.length] : [],
-      oneSize: oneSizePages.length > 0 ? oneSizePages[index % oneSizePages.length] : [],
-    }));
+    return [
+      ...sizedPages.map((sized) => ({ sized, oneSize: [] })),
+      ...oneSizePages.map((oneSize) => ({ sized: [], oneSize })),
+    ];
   }, [
     filtered.oneSizeProducts,
     filtered.sizedProducts,
@@ -504,6 +499,9 @@ export default function Merch({ products, config, conference, inventory }: Merch
 
   const activePageIndex = totalPages > 0 ? Math.min(pageIndex, totalPages - 1) : 0;
   const visibleBoardPage = boardPages[activePageIndex] ?? null;
+  const visiblePageHasBothPanels = Boolean(
+    visibleBoardPage?.sized.length && visibleBoardPage.oneSize.length,
+  );
   const visibleBoardRows = visibleBoardPage
     ? Math.max(
         visibleBoardPage.sized.length,
@@ -826,7 +824,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
                   pageIndex={activePageIndex}
                   totalPages={totalPages}
                   inventory={inventory}
-                  showTelemetry={!hasBothPanels}
+                  showTelemetry={!visiblePageHasBothPanels}
                 />
               )}
               {visibleBoardPage.oneSize.length > 0 && (
@@ -836,7 +834,7 @@ export default function Merch({ products, config, conference, inventory }: Merch
                   pageIndex={activePageIndex}
                   totalPages={totalPages}
                   inventory={inventory}
-                  showTelemetry={!hasBothPanels}
+                  showTelemetry={!visiblePageHasBothPanels}
                 />
               )}
             </>
